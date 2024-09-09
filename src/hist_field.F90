@@ -235,59 +235,61 @@ CONTAINS
 
    !#######################################################################
 
-   integer function get_decomp(this)
+   function get_decomp(this) result(decomp)
       class(hist_field_info_t), intent(in) :: this
+      integer                              :: decomp
 
-      get_decomp = this%field_decomp
+      decomp = this%field_decomp
    end function get_decomp
 
    !#######################################################################
 
-   integer function get_num_levels(this)
+   function get_num_levels(this) result(num_levels)
       class(hist_field_info_t), intent(in) :: this
+      integer                              :: num_levels
 
-      get_num_levels = this%field_num_levels
+      num_levels = this%field_num_levels
    end function get_num_levels
 
    !#######################################################################
 
-   subroutine get_dimensions(this, dimensions)
+   function get_dimensions(this) result(dimensions)
       class(hist_field_info_t), intent(in) :: this
-      integer,   allocatable,   intent(inout) :: dimensions(:)
-      allocate(dimensions(size(this%field_dimensions,1)))
+      integer,   allocatable               :: dimensions(:)
+      allocate(dimensions(size(this%field_dimensions)))
       dimensions = this%field_dimensions
-   end subroutine get_dimensions
+   end function get_dimensions
 
    !#######################################################################
 
-   subroutine get_beg_dims(this, beg_dim)
+   function get_beg_dims(this) result(beg_dim)
       class(hist_field_info_t), intent(in) :: this
-      integer,   allocatable,   intent(inout) :: beg_dim(:)
+      integer,   allocatable               :: beg_dim(:)
       if (allocated(this%field_beg_dims)) then
-         allocate(beg_dim(size(this%field_beg_dims,1)))
+         allocate(beg_dim(size(this%field_beg_dims)))
          beg_dim = this%field_beg_dims
       end if
-   end subroutine get_beg_dims
+   end function get_beg_dims
 
    !#######################################################################
 
-   subroutine get_end_dims(this, end_dim)
+   function get_end_dims(this) result(end_dim)
       class(hist_field_info_t), intent(in) :: this
-      integer,   allocatable,   intent(inout) :: end_dim(:)
+      integer,   allocatable               :: end_dim(:)
       if (allocated(this%field_end_dims)) then
-         allocate(end_dim(size(this%field_end_dims,1)))
+         allocate(end_dim(size(this%field_end_dims)))
          end_dim = this%field_end_dims
       end if
-   end subroutine get_end_dims
+   end function get_end_dims
 
    !#######################################################################
 
-   subroutine get_shape(this, field_shape)
+   function get_shape(this) result(field_shape)
       class(hist_field_info_t), intent(in) :: this
-      integer,   allocatable,   intent(inout) :: field_shape(:)
+      integer,   allocatable               :: field_shape(:)
       allocate(field_shape(size(this%field_shape)))
       field_shape = this%field_shape
-   end subroutine get_shape
+   end function get_shape
 
    !#######################################################################
 
@@ -300,10 +302,11 @@ CONTAINS
 
    !#######################################################################
 
-   logical function get_flag_xyfill(this)
+   function get_flag_xyfill(this) result(flag_xyfill)
       class(hist_field_info_t), intent(in) :: this
+      logical                              :: flag_xyfill
 
-      get_flag_xyfill = this%field_flag_xyfill
+      flag_xyfill = this%field_flag_xyfill
 
    end function get_flag_xyfill
 

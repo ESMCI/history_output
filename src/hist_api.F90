@@ -245,8 +245,8 @@ CONTAINS
       line_loc = __LINE__ - 1
       if (associated(buffer)) then
          field_base => field
-         call field%beg_dims(beg_dims)
-         call field%end_dims(end_dims)
+         beg_dims = field%beg_dims()
+         end_dims = field%end_dims()
          allocate(buffer_shape(size(buff_shape,1)))
          buffer_shape(1) = end_dims(1) - beg_dims(1) + 1
          if (size(buffer_shape) > 1) then
