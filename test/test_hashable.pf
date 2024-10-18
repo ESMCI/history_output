@@ -1,0 +1,31 @@
+@test
+subroutine test_hashable_int_key_and_val_equal_input()
+  use funit
+  use hist_hashable, only: hist_hashable_int_t
+  use hist_hashable, only: new_hashable_int
+
+  type(hist_hashable_int_t), pointer :: p=>NULL()
+
+  call new_hashable_int(1, p)
+
+  ! Assert value and key are the same the hashable was created with
+  @assertEqual(1, p%val())
+  @assertEqual("1", p%key())
+
+end subroutine test_hashable_int_key_and_val_equal_input
+
+@test
+subroutine test_hashable_char_key_equal_input()
+  use funit
+  use hist_hashable, only: hist_hashable_char_t
+  use hist_hashable, only: new_hashable_char
+
+  type(hist_hashable_char_t), pointer :: p=>NULL()
+
+  call new_hashable_char("a", p)
+
+  ! Assert key is same as input into the hashable
+  @assertEqual("a", p%key())
+
+end subroutine test_hashable_char_key_equal_input
+
