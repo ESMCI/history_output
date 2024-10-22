@@ -107,7 +107,7 @@ module hist_hash_table
       class(hist_hashable_t), pointer             :: entry_value => NULL()
       type(table_entry_t),    pointer             :: next => NULL()
    contains
-      final :: finalize_table_entry
+      procedure :: finalize_table_entry
    end type table_entry_t
 
    type, public :: hist_hash_table_t
@@ -117,7 +117,7 @@ module hist_hash_table
       integer, private                          :: overflow_size = -1
       integer, private                          :: key_offset = gen_hash_key_offset
       type(table_entry_t), private, allocatable :: primary_table(:)
- ! Statistics
+      ! Statistics
       integer, private                          :: num_keys = 0
       integer, private                          :: num_key_collisions = 0
       integer, private                          :: max_collision = 0
@@ -126,6 +126,7 @@ module hist_hash_table
       procedure :: key_hash     => hash_table_key_hash
       procedure :: add_hash_key => hash_table_add_hash_key
       procedure :: table_value  => hash_table_table_value
+      procedure :: deallocate_table => hash_table_deallocate_table
    end type hist_hash_table_t
 
    !! Private interfaces
@@ -159,13 +160,13 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine finalize_table_entry(te)
-      type(table_entry_t)          :: te
+   subroutine finalize_table_entry(this)
+      class(table_entry_t), intent(inout)  :: this
 
-      nullify(te%entry_value) ! We do not own the memory
-      if (associated(te%next)) then
-         deallocate(te%next) ! This should invoke finalize recursively
-         nullify(te%next)
+      nullify(this%entry_value) ! We do not own the memory
+      if (associated(this%next)) then
+         deallocate(this%next) ! This should invoke finalize recursively
+         nullify(this%next)
       end if
 
    end subroutine finalize_table_entry
@@ -181,15 +182,35 @@ CONTAINS
 
       ! Clear this table so it can be initialized
       if (allocated(this%primary_table)) then
-         deallocate(this%primary_table)
+         call this%deallocate_table()
       end if
       ! Avoid too-large tables
-      this%table_size = ishft(1, MIN(tbl_size, bit_size(1) - 2))
+      this%table_size = ishft(1, MIN(tbl_size, 14))
+
       allocate(this%primary_table(this%table_size))
       if (present(key_off)) then
          this%key_offset = key_off
       end if
    end subroutine hash_table_initialize_table
+
+   !#######################################################################
+
+   subroutine hash_table_deallocate_table(this)
+      ! Deallocate the hash table (if present)
+      ! Dummy argument
+      class(hist_hash_table_t)     :: this
+
+      ! Local variable
+      integer :: entry_index
+
+      if (allocated(this%primary_table)) then
+         do entry_index = 1, size(this%primary_table)
+            call this%primary_table(entry_index)%finalize_table_entry()
+         end do
+         deallocate(this%primary_table)
+      end if
+
+   end subroutine hash_table_deallocate_table
 
    !#######################################################################
 

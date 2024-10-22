@@ -24,8 +24,8 @@ module hist_msg_handler
    integer, public, parameter :: WARNING = 1
    integer, public, parameter :: INFO    = 2
    integer, public, parameter :: VERBOSE = 3
-   integer, public, parameter :: DEBUG   = 4
-   integer, public, parameter :: MAX_LEVEL = DEBUG
+   integer, public, parameter :: DEBUG_HIST   = 4
+   integer, public, parameter :: MAX_LEVEL = DEBUG_HIST
 
    type :: hist_log_entry
       integer                           :: message_level = ERROR
@@ -54,7 +54,7 @@ module hist_msg_handler
       final     :: finalize_hist_log_messages
    end type hist_log_messages
 
-   character(len=8) :: MSG_HEAD(ERROR:DEBUG) = (/ 'ERROR   ', 'WARNING ',     &
+   character(len=8) :: MSG_HEAD(ERROR:DEBUG_HIST) = (/ 'ERROR   ', 'WARNING ',     &
         'INFO    ', 'VERBOSE ', 'DEBUG   ' /)
 
 CONTAINS

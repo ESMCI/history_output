@@ -1,0 +1,35 @@
+@test
+subroutine test_hash_table_add_hashable_char_value_same_after_get()
+  use funit
+  use hist_hash_table, only: hist_hash_table_t
+  use hist_hashable,   only: hist_hashable_char_t
+  use hist_hashable,   only: new_hashable_char
+  use hist_hashable,   only: hist_hashable_t
+
+  type(hist_hash_table_t)             :: htable
+  type(hist_hashable_char_t), pointer :: hp    => NULL()
+  class(hist_hashable_t),     pointer :: hpout => NULL()
+
+  call htable%initialize(4)
+  call new_hashable_char("1", hp)
+  call htable%add_hash_key(hp)
+  hpout=>htable%table_value("1")
+
+  ! Verify the key of the hashed value from the hashable is the same as the hashable that was passed in
+  @assertEqual("1", hpout%key())
+
+end subroutine test_hash_table_add_hashable_char_value_same_after_get
+
+@test
+subroutine test_hash_table_key_is_expected()
+  use funit
+  use hist_hash_table, only: hist_hash_table_t
+
+  type(hist_hash_table_t)             :: htable
+
+  call htable%initialize(4)
+
+  ! Assert the key hash method returns the integer version of the provided string
+  @assertEqual(1, htable%key_hash("1"))
+
+end subroutine test_hash_table_key_is_expected
