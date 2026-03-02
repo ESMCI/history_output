@@ -374,7 +374,7 @@ CONTAINS
          do ind2 = 1, size(this%data,2)
             nacc = this%num_samples(ind1, ind2)
             if (nacc > 0) then
-               norm_val(ind1, ind2) = this%data(ind1, ind2)
+               norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
             else if (present(default_val)) then
                norm_val(ind1, ind2) = default_val
             end if
@@ -538,7 +538,7 @@ CONTAINS
       do ind1 = 1, size(this%data,1)
          nacc = this%num_samples(ind1)
          if (nacc > 0) then
-            norm_val(ind1) = this%data(ind1)
+            norm_val(ind1) = this%data(ind1) / nacc
          else if (present(default_val)) then
             norm_val(ind1) = default_val
          end if
@@ -681,13 +681,11 @@ CONTAINS
       do ind1 = 1, this%field_shape(1)
          nacc = this%num_samples(ind1)
          if (nacc > 0) then
-            norm_val(ind1) = this%data(ind1)
+            norm_val(ind1) = this%data(ind1) / nacc
          else if (present(default_val)) then
             norm_val(ind1) = default_val
          end if
       end do
-
-      norm_val(:) = this%data(:)
 
    end subroutine buff_1dreal64_value
 
@@ -836,7 +834,7 @@ CONTAINS
          do ind2 = 1, this%field_shape(2)
             nacc = this%num_samples(ind1,ind2)
             if (nacc > 0) then
-               norm_val(ind1, ind2) = this%data(ind1, ind2)
+               norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
             else if (present(default_val)) then
                norm_val(ind1, ind2) = default_val
             end if
