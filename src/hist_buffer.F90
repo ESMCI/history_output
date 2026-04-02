@@ -7,7 +7,7 @@ module hist_buffer
 
    ! Public interfaces
    public :: buffer_factory
-
+   
    ! Accumulation types -- the integers and array positions below must match
    integer, parameter, public :: hist_accum_lst = 1 ! last sample
    integer, parameter, public :: hist_accum_min = 2 ! minimum sample
@@ -33,6 +33,8 @@ module hist_buffer
       integer,                             private :: horiz_axis_ind = 0
       integer,                             private :: rank = 0
       integer,                             private :: accum_type = 0
+      logical,                             private :: flag_xyfill = .false.
+      real(REAL64),                        private :: fill_value
       integer,                allocatable, private :: field_shape(:)
       integer,                allocatable, private :: block_begs(:)
       integer,                allocatable, private :: block_ends(:)
@@ -70,6 +72,7 @@ module hist_buffer
       procedure :: accumulate => buff_2dreal32_accum
       procedure :: norm_value => buff_2dreal32_value
       procedure :: initialize => init_buff_2dreal32
+      procedure :: check_fill_value => buff_2dreal32_check_fill
    end type hist_buff_2dreal32_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_1dreal64_t
@@ -90,6 +93,7 @@ module hist_buffer
       procedure :: accumulate => buff_2dreal64_accum
       procedure :: norm_value => buff_2dreal64_value
       procedure :: initialize => init_buff_2dreal64
+      procedure :: check_fill_value => buff_2dreal64_check_fill
    end type hist_buff_2dreal64_t
 
    ! Abstract interfaces for hist_buffer_t class
@@ -104,8 +108,10 @@ module hist_buffer
 
    abstract interface
       subroutine hist_buff_init(this, field_in, volume_in, horiz_axis_in,     &
-           accum_type_in, shape_in, block_sizes_in, block_ind_in, logger)
+           accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+           block_ind_in, logger)
          use hist_msg_handler, only: hist_log_messages
+         use ISO_FORTRAN_ENV, only: REAL64
          import                   :: hist_buffer_t
          import                   :: hist_hashable_t
          class(hist_buffer_t),              intent(inout) :: this
@@ -113,7 +119,9 @@ module hist_buffer
          integer,                           intent(in)    :: volume_in
          integer,                           intent(in)    :: horiz_axis_in
          integer,                           intent(in)    :: accum_type_in
+         real(REAL64),                      intent(in)    :: fill_val_in
          integer,                           intent(in)    :: shape_in(:)
+         logical,                           intent(in)    :: flag_xyfill_in
          integer,                 optional, intent(in)    :: block_sizes_in(:)
          integer,                 optional, intent(in)    :: block_ind_in
          type(hist_log_messages), optional, intent(inout) :: logger
@@ -206,7 +214,8 @@ CONTAINS
    !#######################################################################
 
    subroutine init_buffer(this, field_in, volume_in, horiz_axis_in,           &
-        accum_type_in, shape_in, block_sizes_in, block_ind_in, logger)
+        accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+        block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_alloc_error
       use hist_msg_handler, only: hist_add_error
 
@@ -216,7 +225,9 @@ CONTAINS
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
+      real(REAL64),                      intent(in)    :: fill_val_in
       integer,                           intent(in)    :: shape_in(:)
+      logical,                           intent(in)    :: flag_xyfill_in
       integer,                 optional, intent(in)    :: block_sizes_in(:)
       integer,                 optional, intent(in)    :: block_ind_in
       type(hist_log_messages), optional, intent(inout) :: logger
@@ -236,6 +247,8 @@ CONTAINS
          this%vol = volume_in
          this%horiz_axis_ind = horiz_axis_in
          this%accum_type = accum_type_in
+         this%fill_value = fill_val_in
+         this%flag_xyfill = flag_xyfill_in
          allocate(this%field_shape(size(shape_in, 1)), stat=astat)
          if (astat == 0) then
             this%field_shape(:) = shape_in(:)
@@ -303,9 +316,9 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine init_buff_1dreal32(this, field_in, volume_in,              &
-        horiz_axis_in, accum_type_in, shape_in, block_sizes_in, block_ind_in, &
-        logger)
+   subroutine init_buff_1dreal32(this, field_in, volume_in, horiz_axis_in, &
+        accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+        block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_alloc_error
 
       ! Dummy arguments
@@ -314,12 +327,15 @@ CONTAINS
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
+      real(REAL64),                      intent(in)    :: fill_val_in
       integer,                           intent(in)    :: shape_in(:)
+      logical,                           intent(in)    :: flag_xyfill_in
       integer,                 optional, intent(in)    :: block_sizes_in(:)
       integer,                 optional, intent(in)    :: block_ind_in
       type(hist_log_messages), optional, intent(inout) :: logger
-      call init_buffer(this, field_in, volume_in, horiz_axis_in,              &
-           accum_type_in, shape_in, block_sizes_in, block_ind_in, logger=logger)
+      call init_buffer(this, field_in, volume_in, horiz_axis_in, accum_type_in, &
+              fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+              block_ind_in, logger=logger)
       call this%clear(logger=logger)
       this%buff_type = 'buff_1dreal32'
 
@@ -358,13 +374,12 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine buff_2dreal32_value(this, norm_val, default_val, logger)
+   subroutine buff_2dreal32_value(this, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages
 
       ! Dummy arguments
       class(hist_buff_2dreal32_t),       intent(inout) :: this
       real(REAL32),                      intent(inout) :: norm_val(:,:)
-      real(REAL32),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variable
       integer :: ind1, ind2
@@ -375,8 +390,8 @@ CONTAINS
             nacc = this%num_samples(ind1, ind2)
             if (nacc > 0) then
                norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
-            else if (present(default_val)) then
-               norm_val(ind1, ind2) = default_val
+            else if (this%flag_xyfill) then
+               norm_val(ind1, ind2) = this%fill_value
             end if
          end do
       end do
@@ -414,47 +429,136 @@ CONTAINS
          end if
       end if
 
-
       select case (this%accum_type)
       case (hist_accum_lst)
-         this%data(:,:) = field(:,:)
-         this%num_samples(:,:) = 1
+         do ind1 = col_beg_use, col_end_use
+            do ind2 = 1, size(field,2)
+               fld_val = field(ind1 - col_beg_use + 1, ind2)
+               if (this%flag_xyfill .and. fld_val == this%fill_value) then
+                  ! Set num samples to 0 if this is a fill value
+                  ! This will trigger logic in _value routine
+                  this%data(ind1, ind2) = this%fill_value
+                  this%num_samples(ind1, ind2) = 0
+               else
+                  this%data(ind1, ind2) = fld_val
+                  this%num_samples(ind1, ind2) = 1
+               end if
+            end do
+         end do
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (this%num_samples(ind1, ind2) == 0) then
-                  this%data(ind1, ind2) = fld_val
-               else if (fld_val < this%data(ind1, ind2)) then
-                  this%data(ind1, ind2) = fld_val
-               end if ! No else, we already have the minimum value for this col
-               this%num_samples(ind1, ind2) = 1
+               if (this%flag_xyfill) then
+                  ! If the buffer (possibly) contains fill values,
+                  ! only check for minimum if not a fill value
+                  if (this%num_samples(ind1, ind2) == 0) then
+                     if (fld_val /= this%fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                        this%num_samples(ind1, ind2) = 1
+                     else
+                        ! Set to large positive number if this is a fill value
+                        ! Also do not change num_samples - if num_samples
+                        ! is zero at the end of the accumulation period,
+                        ! the value will be overwritten to fill_value
+                        this%data(ind1, ind2) = HUGE(REAL32)
+                     end if
+                  else if (fld_val < this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the minimum value for this col
+               else
+                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val < this%data(ind1, ind2)) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the minimum value for this col
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (this%num_samples(ind1, ind2) == 0) then
-                  this%data(ind1, ind2) = fld_val
-               else if (fld_val > this%data(ind1, ind2)) then
-                  this%data(ind1, ind2) = fld_val
-               end if ! No else, we already have the maximum value for this col
-               this%num_samples(ind1, ind2) = 1
+               if (this%flag_xyfill) then
+                  ! If the buffer (possibly) contains fill values,
+                  ! only check for maximum if not a fill value
+                  if (this%num_samples(ind1, ind2) == 0) then
+                     if (fld_val /= this%fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                        this%num_samples(ind1, ind2) = 1
+                     else
+                        ! Set to large negative number if this is a fill value
+                        ! Also do not change num_samples - if num_samples
+                        ! is zero at the end of the accumulation period,
+                        ! the value will be overwritten to fill_value
+                        this%data(ind1, ind2) = -HUGE(REAL32)
+                     end if
+                  else if (fld_val > this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the maximum value for this col
+               else
+                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val > this%data(ind1, ind2)) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the maximum value for this col
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                ! Compute running sum
-               this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-               this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+               if (this%flag_xyfill) then
+                  ! Only include sample if it's not a fill value
+                  if (fld_val /= real(this%fill_value, REAL32)) then
+                     this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
+                     this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                  end if
+               else
+                  this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
+                  this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       end select
 
    end subroutine buff_2dreal32_accum
+
+   !#######################################################################
+
+   subroutine buff_2dreal32_check_fill(this, field, logger)
+      use hist_msg_handler, only: hist_log_messages, hist_add_error, ERROR
+      ! Ensure that columns have fillvalue applied consistently across levels
+      class(hist_buff_2dreal32_t),       intent(inout) :: this
+      real(REAL32),                      intent(in)    :: field(:,:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      character(len=512) :: errstr
+      integer :: idx, jdx
+
+      do jdx = 2, size(field, 2)
+         do idx = 1, size(field, 1)
+            if (field(idx,1) == real(this%fill_value, REAL32) .and. &
+                 field(idx,jdx) /= real(this%fill_value, REAL32) .or. &
+                 field(idx,1) /= real(this%fill_value, REAL32) .and. &
+                 field(idx,jdx) == real(this%fill_value, REAL32)) then
+               write(errstr, '(a,i0)') 'ERROR: fill value applied inconsistently for column ', idx
+               call hist_add_error('buff_2dreal32_check_fill', errstr, errors=logger)
+            end if
+         end do
+      end do
+   end subroutine buff_2dreal32_check_fill
 
    !#######################################################################
 
@@ -489,33 +593,87 @@ CONTAINS
 
       select case (this%accum_type)
       case (hist_accum_lst)
-         this%data(col_beg_use:col_end_use) = field(:)
-         this%num_samples(col_beg_use:col_end_use) = 1
+         do ind1 = col_beg_use, col_end_use
+            fld_val = field(ind1 - col_beg_use + 1)
+            if (this%flag_xyfill .and. fld_val == real(this%fill_value, REAL32)) then
+               ! Set num samples to 0 if this is a fill value
+               ! This will trigger logic in _value routine
+               this%data(ind1) = real(this%fill_value, REAL32)
+               this%num_samples = 0
+            else
+               this%data(ind1) = fld_val
+               this%num_samples(ind1) = 1
+            end if
+         end do
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            if (this%num_samples(ind1) == 0) then
-               this%data(ind1) = fld_val
-            else if (fld_val < this%data(ind1)) then
-               this%data(ind1) = fld_val
-            end if ! No else, we already have the minimum value for this col
-            this%num_samples(ind1) = 1
+            if (this%flag_xyfill) then
+               ! If the buffer (possibly) contains fill values,
+               ! only check for minimum if not a fill value
+               if (this%num_samples(ind1) == 0) then
+                  if (fld_val /= real(this%fill_value, REAL32)) then
+                     this%data(ind1) = fld_val
+                     this%num_samples(ind1) = 1
+                  else
+                     ! Set to large positive number if this is a fill value
+                     ! Also do not change num_samples - if num_samples
+                     ! is zero at the end of the accumulation period,
+                     ! the value will be overwritten to fill_value
+                     this%data(ind1) = HUGE(REAL32)
+                  end if
+               else if (fld_val < this%data(ind1) .and. fld_val /= real(this%fill_value, REAL32)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the minimum value for this col
+            else
+               if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the minimum value for this col
+            end if
          end do
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            if (this%num_samples(ind1) == 0) then
-               this%data(ind1) = fld_val
-            else if (fld_val > this%data(ind1)) then
-               this%data(ind1) = fld_val
-            end if ! No else, we already have the maximum value for this col
-            this%num_samples(ind1) = 1
+            if (this%flag_xyfill) then
+               ! If the buffer (possibly) contains fill values,
+               ! only check for maximum if not a fill value
+               if (this%num_samples(ind1) == 0) then
+                  if (fld_val /= real(this%fill_value, REAL32)) then
+                     this%data(ind1) = fld_val
+                     this%num_samples(ind1) = 1
+                  else
+                     ! Set to large negative number if this is a fill value
+                     ! Also do not change num_samples - if num_samples
+                     ! is zero at the end of the accumulation period,
+                     ! the value will be overwritten to fill_value
+                     this%data(ind1) = -HUGE(REAL32)
+                  end if
+               else if (fld_val > this%data(ind1) .and. fld_val /= real(this%fill_value, REAL32)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the maximum value for this col
+            else
+               if (this%num_samples(ind1) == 0 .or. fld_val > this%data(ind1)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the maximum value for this col
+            end if
          end do
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            this%data(ind1) = this%data(ind1) + fld_val
-            this%num_samples(ind1) = this%num_samples(ind1) + 1
+            if (this%flag_xyfill) then
+               ! Only include samples that aren't fill values
+               if (this%data(ind1) /= real(this%fill_value, REAL32)) then
+                  this%data(ind1) = this%data(ind1) + fld_val
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               end if
+            else
+               this%data(ind1) = this%data(ind1) + fld_val
+               this%num_samples(ind1) = this%num_samples(ind1) + 1
+            end if
          end do
       end select
 
@@ -523,13 +681,12 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine buff_1dreal32_value(this, norm_val, default_val, logger)
+   subroutine buff_1dreal32_value(this, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages
 
       ! Dummy arguments
       class(hist_buff_1dreal32_t),       intent(inout) :: this
       real(REAL32),                      intent(inout) :: norm_val(:)
-      real(REAL32),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variable
       integer :: ind1
@@ -539,8 +696,8 @@ CONTAINS
          nacc = this%num_samples(ind1)
          if (nacc > 0) then
             norm_val(ind1) = this%data(ind1) / nacc
-         else if (present(default_val)) then
-            norm_val(ind1) = default_val
+         else if (this%flag_xyfill) then
+            norm_val(ind1) = this%fill_value
          end if
       end do
 
@@ -579,9 +736,9 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine init_buff_1dreal64(this, field_in, volume_in,              &
-        horiz_axis_in, accum_type_in, shape_in, block_sizes_in, block_ind_in, &
-        logger)
+   subroutine init_buff_1dreal64(this, field_in, volume_in, horiz_axis_in, &
+        accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+        block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages
 
       class(hist_buff_1dreal64_t),       intent(inout) :: this
@@ -589,13 +746,16 @@ CONTAINS
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
+      real(REAL64),                      intent(in)    :: fill_val_in
       integer,                           intent(in)    :: shape_in(:)
+      logical,                           intent(in)    :: flag_xyfill_in
       integer,                 optional, intent(in)    :: block_sizes_in(:)
       integer,                 optional, intent(in)    :: block_ind_in
       type(hist_log_messages), optional, intent(inout) :: logger
 
-      call init_buffer(this, field_in, volume_in, horiz_axis_in,              &
-           accum_type_in, shape_in, block_sizes_in, block_ind_in, logger=logger)
+      call init_buffer(this, field_in, volume_in, horiz_axis_in, accum_type_in, &
+              fill_val_in, shape_in, flag_xyfill_in, block_sizes_in,&
+              block_ind_in, logger=logger)
       call this%clear(logger=logger)
       this%buff_type = 'buff_1dreal64'
 
@@ -633,33 +793,92 @@ CONTAINS
 
       select case (this%accum_type)
       case (hist_accum_lst)
-         this%data(col_beg_use:col_end_use) = field(:)
-         this%num_samples(col_beg_use:col_end_use) = 1
+         do ind1 = col_beg_use, col_end_use
+            fld_val = field(ind1 - col_beg_use + 1)
+            if (this%flag_xyfill) then
+               if (fld_val == this%fill_value) then
+                  ! Set num samples to 0 if this is a fill value
+                  ! This will trigger logic in _value routine
+                  this%data(ind1) = this%fill_value
+                  this%num_samples(ind1) = 0
+               else
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if
+            else
+               this%data(ind1) = fld_val
+               this%num_samples(ind1) = 1
+            end if
+         end do
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            if (this%num_samples(ind1) == 0) then
-               this%data(ind1) = fld_val
-            else if (fld_val < this%data(ind1)) then
-               this%data(ind1) = fld_val
-            end if ! No else, we already have the minimum value for this col
-            this%num_samples(ind1) = 1
+            if (this%flag_xyfill) then
+               ! If the buffer (possibly) contains fill values,
+               ! only check for minimum if not a fill value
+               if (this%num_samples(ind1) == 0) then
+                  if (fld_val /= this%fill_value) then
+                     this%data(ind1) = fld_val
+                     this%num_samples(ind1) = 1
+                  else
+                     ! Set to large positive number if this is a fill value
+                     ! Also do not change num_samples - if num_samples
+                     ! is zero at the end of the accumulation period,
+                     ! the value will be overwritten to fill_value
+                     this%data(ind1) = HUGE(REAL64)
+                  end if
+               else if (fld_val < this%data(ind1) .and. fld_val /= this%fill_value) then
+                  this%data(ind1) = fld_val
+                  this%data(ind1) = 1
+               end if ! No else, we already have the minimum value for this col
+            else
+               if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the minimum value for this col
+            end if
          end do
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            if (this%num_samples(ind1) == 0) then
-               this%data(ind1) = fld_val
-            else if (fld_val > this%data(ind1)) then
-               this%data(ind1) = fld_val
-            end if ! No else, we already have the maximum value for this col
-            this%num_samples(ind1) = 1
+            if (this%flag_xyfill) then
+               ! If the buffer (possibly) contains fill values,
+               ! only check for maximum if not a fill value
+               if (this%num_samples(ind1) == 0) then
+                  if (fld_val /= this%fill_value) then
+                     this%data(ind1) = fld_val
+                     this%num_samples(ind1) = 1
+                  else
+                     ! Set to large negative number if this is a fill value
+                     ! Also do not change num_samples - if num_samples
+                     ! is zero at the end of the accumulation period,
+                     ! the value will be overwritten to fill_value
+                     this%data(ind1) = -HUGE(REAL64)
+                  end if
+               else if (fld_val > this%data(ind1) .and. fld_val /= this%fill_value) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the maximum value for this col
+            else
+               if (this%num_samples(ind1) == 0 .or. fld_val > this%data(ind1)) then
+                  this%data(ind1) = fld_val
+                  this%num_samples(ind1) = 1
+               end if ! No else, we already have the maximum value for this col
+            end if
          end do
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
-            this%data(ind1) = this%data(ind1) + fld_val
-            this%num_samples(ind1) = this%num_samples(ind1) + 1
+            if (this%flag_xyfill) then
+               ! Only include sample if not the fill value
+               if (fld_val /= this%fill_value) then
+                  this%data(ind1) = this%data(ind1) + fld_val
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               end if
+            else
+               this%data(ind1) = this%data(ind1) + fld_val
+               this%num_samples(ind1) = this%num_samples(ind1) + 1
+            end if
          end do
       end select
 
@@ -667,12 +886,11 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine buff_1dreal64_value(this, norm_val, default_val, logger)
+   subroutine buff_1dreal64_value(this, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, ERROR, VERBOSE
       ! Dummy arguments
       class(hist_buff_1dreal64_t),       intent(inout) :: this
       real(REAL64),                      intent(inout) :: norm_val(:)
-      real(REAL64),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variable
       integer :: ind1
@@ -682,8 +900,8 @@ CONTAINS
          nacc = this%num_samples(ind1)
          if (nacc > 0) then
             norm_val(ind1) = this%data(ind1) / nacc
-         else if (present(default_val)) then
-            norm_val(ind1) = default_val
+         else if (this%flag_xyfill) then
+            norm_val(ind1) = this%fill_value
          end if
       end do
 
@@ -722,9 +940,9 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine init_buff_2dreal64(this, field_in, volume_in,              &
-        horiz_axis_in, accum_type_in, shape_in, block_sizes_in, block_ind_in, &
-        logger)
+   subroutine init_buff_2dreal64(this, field_in, volume_in, horiz_axis_in, &
+        accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+        block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages
 
       class(hist_buff_2dreal64_t),       intent(inout) :: this
@@ -732,13 +950,16 @@ CONTAINS
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
+      real(REAL64),                      intent(in)    :: fill_val_in
       integer,                           intent(in)    :: shape_in(:)
+      logical,                           intent(in)    :: flag_xyfill_in
       integer,                 optional, intent(in)    :: block_sizes_in(:)
       integer,                 optional, intent(in)    :: block_ind_in
       type(hist_log_messages), optional, intent(inout) :: logger
 
-      call init_buffer(this, field_in, volume_in, horiz_axis_in,              &
-           accum_type_in, shape_in, block_sizes_in, block_ind_in, logger=logger)
+      call init_buffer(this, field_in, volume_in, horiz_axis_in, accum_type_in, &
+              fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+              block_ind_in, logger=logger)
       call this%clear(logger=logger)
       this%buff_type = 'buff_2dreal64'
 
@@ -775,56 +996,142 @@ CONTAINS
          end if
       end if
 
-
       select case (this%accum_type)
       case (hist_accum_lst)
-         this%data = field
-         this%num_samples = 1
+         do ind1 = col_beg_use, col_end_use
+            do ind2 = 1, size(field,2)
+               fld_val = field(ind1 - col_beg_use + 1, ind2)
+               if (this%flag_xyfill .and. fld_val == this%fill_value) then
+                  ! Set num samples to 0 if this is a fill value
+                  ! This will trigger logic in _value routine
+                  this%data(ind1, ind2) = this%fill_value
+                  this%num_samples = 0
+               else
+                  this%data(ind1, ind2) = fld_val
+                  this%num_samples = 1
+               end if
+            end do
+         end do
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (this%num_samples(ind1, ind2) == 0) then
-                  this%data(ind1, ind2) = fld_val
-               else if (fld_val < this%data(ind1, ind2)) then
-                  this%data(ind1, ind2) = fld_val
-               end if ! No else, we already have the minimum value for this col
-               this%num_samples(ind1, ind2) = 1
+               if (this%flag_xyfill) then
+                  ! If the buffer (possibly) contains fill values,
+                  ! only check for minimum if not a fill value
+                  if (this%num_samples(ind1, ind2) == 0) then
+                     if (fld_val /= this%fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                        this%num_samples(ind1, ind2) = 1
+                     else
+                        ! Set to large positive number if this is a fill value
+                        ! Also do not change num_samples - if num_samples
+                        ! is zero at the end of the accumulation period,
+                        ! the value will be overwritten to fill_value
+                        this%data(ind1, ind2) = HUGE(REAL64)
+                     end if
+                  else if (fld_val < this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the minimum value for this col
+               else
+                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val < this%data(ind1, ind2)) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the minimum value for this col
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (this%num_samples(ind1, ind2) == 0) then
-                  this%data(ind1, ind2) = fld_val
-               else if (fld_val > this%data(ind1, ind2)) then
-                  this%data(ind1, ind2) = fld_val
-               end if ! No else, we already have the maximum value for this col
-               this%num_samples(ind1, ind2) = 1
+               if (this%flag_xyfill) then
+                  ! If the buffer (possibly) contains fill values,
+                  ! only check for maximum if not a fill value
+                  if (this%num_samples(ind1, ind2) == 0) then
+                     if (fld_val /= this%fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                        this%num_samples(ind1, ind2) = 1
+                     else
+                        ! Set to large negative number if this is a fill value
+                        ! Also do not change num_samples - if num_samples
+                        ! is zero at the end of the accumulation period,
+                        ! the value will be overwritten to fill_value
+                        this%data(ind1, ind2) = -HUGE(REAL64)
+                     end if
+                  else if (fld_val > this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if ! No else, we already have the maximum value for this col
+               else
+                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val > this%data(ind1, ind2)) then
+                     this%data(ind1, ind2) = fld_val
+                     this%num_samples(ind1, ind2) = 1
+                  end if
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                ! Compute running sum
-               this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-               this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+               if (this%flag_xyfill) then
+                  ! Only include sample if it is not the fill value
+                  if (fld_val /= this%fill_value) then
+                     this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
+                     this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                  end if
+               else
+                  this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
+                  this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+               end if
             end do
          end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       end select
 
    end subroutine buff_2dreal64_accum
 
    !#######################################################################
 
-   subroutine buff_2dreal64_value(this, norm_val, default_val, logger)
+   subroutine buff_2dreal64_check_fill(this, field, logger)
+      use hist_msg_handler, only: hist_log_messages, hist_add_error, ERROR
+      ! Ensure that columns have fill value applied consistently across levels
+      class(hist_buff_2dreal64_t),       intent(inout) :: this
+      real(REAL64),                      intent(in)    :: field(:,:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      character(len=512) :: errstr
+      integer :: idx, jdx
+
+      do jdx = 2, size(field, 2)
+         do idx = 1, size(field, 1)
+            if (field(idx,1) == this%fill_value .and. field(idx,jdx) /= this%fill_value .or. &
+                 field(idx,1) /= this%fill_value .and. field(idx,jdx) == this%fill_value) then
+               write(errstr, '(a,i0)') 'ERROR: fill value applied inconsistently for column ', idx
+               call hist_add_error('buff_2dreal64_check_fill', errstr, errors=logger)
+            end if
+         end do
+      end do
+   end subroutine buff_2dreal64_check_fill
+
+   !#######################################################################
+
+   subroutine buff_2dreal64_value(this, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, ERROR, VERBOSE
       ! Dummy arguments
       class(hist_buff_2dreal64_t),       intent(inout) :: this
       real(REAL64),                      intent(inout) :: norm_val(:,:)
-      real(REAL64),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variable
       integer :: ind1, ind2
@@ -835,8 +1142,8 @@ CONTAINS
             nacc = this%num_samples(ind1,ind2)
             if (nacc > 0) then
                norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
-            else if (present(default_val)) then
-               norm_val(ind1, ind2) = default_val
+            else if (this%flag_xyfill) then
+               norm_val(ind1, ind2) = this%fill_value
             end if
          end do
       end do
@@ -845,9 +1152,9 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine init_buff_2dreal32(this, field_in, volume_in,              &
-        horiz_axis_in, accum_type_in, shape_in, block_sizes_in, block_ind_in, &
-        logger)
+   subroutine init_buff_2dreal32(this, field_in, volume_in, horiz_axis_in, &
+        accum_type_in, fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+        block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages
 
       class(hist_buff_2dreal32_t),       intent(inout) :: this
@@ -855,13 +1162,16 @@ CONTAINS
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
+      real(REAL64),                      intent(in)    :: fill_val_in
       integer,                           intent(in)    :: shape_in(:)
+      logical,                           intent(in)    :: flag_xyfill_in
       integer,                 optional, intent(in)    :: block_sizes_in(:)
       integer,                 optional, intent(in)    :: block_ind_in
       type(hist_log_messages), optional, intent(inout) :: logger
 
-      call init_buffer(this, field_in, volume_in, horiz_axis_in,              &
-           accum_type_in, shape_in, block_sizes_in, block_ind_in, logger=logger)
+      call init_buffer(this, field_in, volume_in, horiz_axis_in, accum_type_in, &
+              fill_val_in, shape_in, flag_xyfill_in, block_sizes_in, &
+              block_ind_in, logger=logger)
       call this%clear(logger=logger)
       this%buff_type = 'buff_2dreal32'
 
@@ -929,5 +1239,7 @@ CONTAINS
               errstr2=trim(buffer_type), errstr3="'", errors=logger)
       end select
    end function buffer_factory
+
+   !#######################################################################
 
 end module hist_buffer

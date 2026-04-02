@@ -43,8 +43,8 @@ CONTAINS
    !#######################################################################
 
    function hist_new_field(diag_name_in, std_name_in, long_name_in, units_in, &
-        type_in, decomp_in, dimensions, acc_flag, num_levels, field_shape, sampling_seq,  &
-        flag_xyfill, mixing_ratio, dim_bounds, mdim_sizes, beg_dims, end_dims,  &
+        type_in, decomp_in, dimensions, acc_flag, num_levels, field_shape, fill_value, &
+        sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, mdim_sizes, beg_dims, end_dims,  &
         cell_methods, errors) result(new_field)
       use hist_msg_handler, only: hist_have_error, hist_log_messages, ERROR
       use hist_field,       only: hist_field_initialize, hist_field_info_t
@@ -60,6 +60,7 @@ CONTAINS
       character(len=*),                  intent(in)    :: acc_flag
       integer,                           intent(in)    :: field_shape(:)
       integer,                           intent(in)    :: num_levels
+      real(kind=REAL64),                 intent(in)    :: fill_value
       character(len=*),        optional, intent(in)    :: sampling_seq
       logical,                 optional, intent(in)    :: flag_xyfill
       character(len=*),        optional, intent(in)    :: mixing_ratio
@@ -84,8 +85,9 @@ CONTAINS
          call hist_field_initialize(new_field, diag_name_in, std_name_in,     &
               long_name_in, units_in, type_in, decomp_in, dimensions, acc_flag,  &
               num_levels, field_shape, sampling_seq=sampling_seq, flag_xyfill=flag_xyfill,   &
-              mixing_ratio=mixing_ratio, dim_bounds=dim_bounds, mdim_sizes=mdim_sizes, &
-              beg_dims=beg_dims, end_dims=end_dims, cell_methods=cell_methods, errmsg=errmsg)
+              fill_value=fill_value, mixing_ratio=mixing_ratio, dim_bounds=dim_bounds, &
+              mdim_sizes=mdim_sizes, beg_dims=beg_dims, end_dims=end_dims, &
+              cell_methods=cell_methods, errmsg=errmsg)
          if (hist_have_error(errors=errors)) then
             call errors%add_stack_frame(ERROR, __FILE__, __LINE__ - 3,        &
                  subname=subname)
@@ -123,6 +125,8 @@ CONTAINS
       integer                              :: shape_idx
       integer,                 allocatable :: beg_dims(:), end_dims(:)
       integer,                 allocatable :: buffer_shape(:)
+      real(REAL64)                         :: fill_value
+      logical                              :: xyfill_flag
       character(len=8)                     :: kind_string
       character(len=3)                     :: accum_string
       character(len=16)                    :: bufftype_string
@@ -252,8 +256,11 @@ CONTAINS
          if (size(buffer_shape) > 1) then
             buffer_shape(2) = buff_shape(2)
          end if
+         fill_value = field%fill_value()
+         xyfill_flag = field%flag_xyfill()
          call buffer%initialize(field_base, output_vol, horiz_axis_ind,       &
-              accum_val, buffer_shape, block_sizes, block_ind, logger=errors)
+              accum_val, fill_value, buffer_shape, xyfill_flag, block_sizes, block_ind, &
+              logger=errors)
          ! Add this buffer to its field (field should be there if buffer is)
          if (associated(field%buffers)) then
             buff_ptr => field%buffers
@@ -601,15 +608,13 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_buffer_norm_value_1dreal32(buffer, norm_val, default_val,  &
-        logger)
+   subroutine hist_buffer_norm_value_1dreal32(buffer, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_error
       use hist_buffer,      only: hist_buffer_t
 
       ! Dummy arguments
       class(hist_buffer_t),    target,   intent(inout) :: buffer
       real(REAL32),                      intent(inout) :: norm_val(:)
-      real(REAL32),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buff_1dreal32_t), pointer          :: buff32
@@ -621,18 +626,12 @@ CONTAINS
       select type(buffer)
       class is (hist_buff_1dreal32_t)
          buff32 => buffer
-         call buff32%norm_value(norm_val, default_val=default_val,            &
-              logger=logger)
+         call buff32%norm_value(norm_val, logger=logger)
       class is (hist_buff_1dreal64_t)
          ! Truncate 64bit buffer into 32bit output
          buff64 => buffer
          allocate(norm_val64(size(norm_val, 1)))
-         if (present(default_val)) then
-            call buff64%norm_value(norm_val64,                                &
-                 default_val=REAL(default_val, REAL64), logger=logger)
-         else
-            call buff64%norm_value(norm_val64, logger=logger)
-         end if
+         call buff64%norm_value(norm_val64, logger=logger)
          norm_val(:) = REAL(norm_val64(:), REAL32)
       class default
          buff_typestr = buffer%buffer_type()
@@ -644,15 +643,13 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_buffer_norm_value_1dreal64(buffer, norm_val, default_val,  &
-      logger)
+   subroutine hist_buffer_norm_value_1dreal64(buffer, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_error
       use hist_buffer,      only: hist_buffer_t
 
       ! Dummy arguments
       class(hist_buffer_t),    target,   intent(inout) :: buffer
       real(REAL64),                      intent(inout) :: norm_val(:)
-      real(REAL64),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       type(hist_buff_1dreal32_t), pointer          :: buff32
@@ -666,17 +663,11 @@ CONTAINS
          ! Do we want to read out 32bit buffers into 64bit data?
          buff32 => buffer
          allocate(norm_val32(size(norm_val, 1)))
-         if (present(default_val)) then
-            call buffer%norm_value(norm_val32,                                &
-                 default_val=REAL(default_val, REAL32), logger=logger)
-         else
-            call buffer%norm_value(norm_val32, logger=logger)
-         end if
+         call buffer%norm_value(norm_val32, logger=logger)
          norm_val(:) = REAL(norm_val32(:), REAL64)
       class is (hist_buff_1dreal64_t)
          buff64 => buffer
-         call buffer%norm_value(norm_val, default_val=default_val,            &
-              logger=logger)
+         call buffer%norm_value(norm_val, logger=logger)
       class default
          buff_typestr = buffer%buffer_type()
          call hist_add_error(subname, "unsupported buffer type, '",           &
@@ -687,15 +678,13 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_buffer_norm_value_2dreal32(buffer, norm_val, default_val,  &
-        logger)
+   subroutine hist_buffer_norm_value_2dreal32(buffer, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_error
       use hist_buffer,      only: hist_buffer_t
 
       ! Dummy arguments
       class(hist_buffer_t),    target,   intent(inout) :: buffer
       real(REAL32),                      intent(inout) :: norm_val(:,:)
-      real(REAL32),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buff_2dreal32_t), pointer          :: buff32
@@ -707,18 +696,12 @@ CONTAINS
       select type(buffer)
       class is (hist_buff_2dreal32_t)
          buff32 => buffer
-         call buff32%norm_value(norm_val, default_val=default_val,            &
-              logger=logger)
+         call buff32%norm_value(norm_val, logger=logger)
       class is (hist_buff_2dreal64_t)
          ! Truncate 64bit buffer into 32bit output
          buff64 => buffer
          allocate(norm_val64(size(norm_val, 1), size(norm_val, 2)))
-         if (present(default_val)) then
-            call buff64%norm_value(norm_val64,                                &
-                 default_val=REAL(default_val, REAL64), logger=logger)
-         else
-            call buff64%norm_value(norm_val64, logger=logger)
-         end if
+         call buff64%norm_value(norm_val64, logger=logger)
          norm_val(:,:) = REAL(norm_val64(:,:), REAL32)
       class default
          buff_typestr = buffer%buffer_type()
@@ -730,15 +713,13 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_buffer_norm_value_2dreal64(buffer, norm_val, default_val,  &
-      logger)
+   subroutine hist_buffer_norm_value_2dreal64(buffer, norm_val, logger)
       use hist_msg_handler, only: hist_log_messages, hist_add_error
       use hist_buffer,      only: hist_buffer_t
 
       ! Dummy arguments
       class(hist_buffer_t),    target,   intent(inout) :: buffer
       real(REAL64),                      intent(inout) :: norm_val(:,:)
-      real(REAL64),            optional, intent(in)    :: default_val
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       type(hist_buff_2dreal32_t), pointer          :: buff32
@@ -752,17 +733,11 @@ CONTAINS
          ! Do we want to read out 32bit buffers into 64bit data?
          buff32 => buffer
          allocate(norm_val32(size(norm_val, 1), size(norm_val, 2)))
-         if (present(default_val)) then
-            call buffer%norm_value(norm_val32,                                &
-                 default_val=REAL(default_val, REAL32), logger=logger)
-         else
-            call buffer%norm_value(norm_val32, logger=logger)
-         end if
+         call buffer%norm_value(norm_val32, logger=logger)
          norm_val(:,:) = REAL(norm_val32(:,:), REAL64)
       class is (hist_buff_2dreal64_t)
          buff64 => buffer
-         call buffer%norm_value(norm_val, default_val=default_val,            &
-              logger=logger)
+         call buffer%norm_value(norm_val, logger=logger)
       class default
          buff_typestr = buffer%buffer_type()
          call hist_add_error(subname, "unsupported buffer type, '",           &

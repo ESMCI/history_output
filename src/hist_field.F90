@@ -1,4 +1,5 @@
 module hist_field
+   use ISO_FORTRAN_ENV, only: REAL64
    ! Module containing DDTs for history fields and associated routines
 
    use hist_hashable, only: hist_hashable_t
@@ -27,6 +28,7 @@ module hist_field
       integer,                       private :: field_num_levels
       integer,          allocatable, private :: field_dimensions(:)
       logical,                       private :: field_flag_xyfill
+      real(REAL64),                  private :: fillvalue
       integer,          allocatable, private :: field_beg_dims(:)
       integer,          allocatable, private :: field_end_dims(:)
       
@@ -51,6 +53,7 @@ module hist_field
       procedure :: end_dims        => get_end_dims
       procedure :: sampling_sequence => get_sampling_sequence
       procedure :: flag_xyfill       => get_flag_xyfill
+      procedure :: fill_value        => get_fill_value
       procedure :: mixing_ratio      => get_mixing_ratio
       procedure :: cell_methods      => get_cell_methods
       procedure :: set_dimension_bounds
@@ -74,8 +77,8 @@ CONTAINS
 
    subroutine hist_field_initialize(field, diag_name_in, std_name_in,         &
         long_name_in, units_in, type_in, decomp_in, mdim_indices, acc_type, num_levels,  &
-        field_shape, sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, mdim_sizes, &
-        beg_dims, end_dims, cell_methods, errmsg)
+        field_shape, fill_value, sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, &
+        mdim_sizes, beg_dims, end_dims, cell_methods, errmsg)
 
       type(hist_field_info_t), pointer               :: field
       character(len=*),                  intent(in)  :: diag_name_in
@@ -88,6 +91,7 @@ CONTAINS
       character(len=*),                  intent(in)  :: acc_type
       integer,                           intent(in)  :: num_levels
       integer,                           intent(in)  :: field_shape(:)
+      real(REAL64),                      intent(in)  :: fill_value
       character(len=*),        optional, intent(in)  :: sampling_seq
       logical,                 optional, intent(in)  :: flag_xyfill
       character(len=*),        optional, intent(in)  :: mixing_ratio
@@ -109,6 +113,7 @@ CONTAINS
       field%field_decomp = decomp_in
       field%field_accumulate_type = acc_type
       field%field_num_levels = num_levels
+      field%fillvalue = fill_value
       allocate(field%field_dimensions(size(mdim_indices, 1)))
       field%field_dimensions = mdim_indices
       allocate(field%field_shape(size(field_shape, 1)))
@@ -309,6 +314,16 @@ CONTAINS
       flag_xyfill = this%field_flag_xyfill
 
    end function get_flag_xyfill
+
+   !#######################################################################
+
+   function get_fill_value(this) result(fill_value)
+      class(hist_field_info_t), intent(in) :: this
+      real(REAL64)                         :: fill_value
+
+      fill_value = this%fillvalue
+
+   end function get_fill_value
 
    !#######################################################################
 
