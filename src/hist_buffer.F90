@@ -56,6 +56,7 @@ module hist_buffer
 
    type, public, extends(hist_buffer_t) :: hist_buff_1dreal32_t
       real(REAL32), pointer :: data(:) => NULL()
+      real(REAL32), pointer :: var_buffer(:) => NULL()
       integer,  allocatable,   private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_1dreal32_clear
@@ -66,7 +67,8 @@ module hist_buffer
 
    type, public, extends(hist_buffer_t) :: hist_buff_2dreal32_t
       real(REAL32), pointer :: data(:,:) => NULL()
-      integer,  allocatable,   private :: num_samples(:,:)
+      real(REAL32), pointer :: var_buffer(:,:) => NULL()
+      integer,  allocatable,   private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_2dreal32_clear
       procedure :: accumulate => buff_2dreal32_accum
@@ -77,6 +79,7 @@ module hist_buffer
 
    type, public, extends(hist_buffer_t) :: hist_buff_1dreal64_t
       real(REAL64), pointer :: data(:) => NULL()
+      real(REAL32), pointer :: var_buffer(:) => NULL()
       integer,  allocatable,   private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_1dreal64_clear
@@ -87,7 +90,8 @@ module hist_buffer
 
    type, public, extends(hist_buffer_t) :: hist_buff_2dreal64_t
       real(REAL64), pointer :: data(:,:) => NULL()
-      integer, allocatable,    private :: num_samples(:,:)
+      real(REAL32), pointer :: var_buffer(:,:) => NULL()
+      integer, allocatable,    private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_2dreal64_clear
       procedure :: accumulate => buff_2dreal64_accum
@@ -302,6 +306,13 @@ CONTAINS
                  subname=subname, errors=logger)
          end if
       end if
+      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+         allocate(this%var_buffer(this%field_shape(1)), stat=aerr)
+         if (aerr /= 0) then
+            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+                 subname=subname, errors=logger)
+         end if
+      end if
       if (.not. allocated(this%num_samples)) then
          allocate(this%num_samples(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
@@ -311,6 +322,9 @@ CONTAINS
       end if
       this%data = 0.0_REAL32
       this%num_samples = 0
+      if (associated(this%var_buffer)) then
+         this%var_buffer = 0.0_REAL32
+      end if
 
    end subroutine buff_1dreal32_clear
 
@@ -360,8 +374,15 @@ CONTAINS
                  subname=subname, errors=logger)
          end if
       end if
+      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+         allocate(this%var_buffer(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         if (aerr /= 0) then
+            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+                 subname=subname, errors=logger)
+         end if
+      end if
       if (.not. allocated(this%num_samples)) then
-         allocate(this%num_samples(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         allocate(this%num_samples(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('num_samples', __FILE__, __LINE__ - 2,         &
                  subname=subname, errors=logger)
@@ -369,6 +390,9 @@ CONTAINS
       end if
       this%data = 0.0_REAL32
       this%num_samples = 0
+      if (associated(this%var_buffer)) then
+         this%var_buffer = 0.0_REAL32
+      end if
 
    end subroutine buff_2dreal32_clear
 
@@ -384,17 +408,34 @@ CONTAINS
       ! Local variable
       integer :: ind1, ind2
       integer :: nacc
+      real(REAL32) :: tmpfill, variance
 
-      do ind1 = 1, size(this%data,1)
-         do ind2 = 1, size(this%data,2)
-            nacc = this%num_samples(ind1, ind2)
-            if (nacc > 0) then
-               norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
-            else if (this%flag_xyfill) then
-               norm_val(ind1, ind2) = this%fill_value
-            end if
+      if (this%accum_type /= hist_accum_var) then
+         do ind1 = 1, size(this%data,1)
+            nacc = this%num_samples(ind1)
+            do ind2 = 1, size(this%data,2)
+               if (nacc > 0) then
+                  norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
+               else if (this%flag_xyfill) then
+                  norm_val(ind1, ind2) = this%fill_value
+               end if
+            end do
          end do
-      end do
+      else
+         ! Standard deviation
+         ! from http://www.johndcook.com/blog/standard_deviation/
+         tmpfill = merge(real(this%fill_value, REAL32), 0.0_REAL32, this%flag_xyfill)
+         do ind1 = 1, size(this%data,1)
+            do ind2 = 1, size(this%data,2)
+               if (this%num_samples(ind1) > 0) then
+                  variance = this%var_buffer(ind1, ind2) / this%num_samples(ind1)
+                  norm_val(ind1, ind2) = sqrt(variance)
+               else
+                  norm_val(ind1, ind2) = tmpfill
+               end if
+            end do
+         end do
+      end if
 
    end subroutine buff_2dreal32_value
 
@@ -412,7 +453,7 @@ CONTAINS
       integer      :: col_beg_use
       integer      :: col_end_use
       integer      :: ind1, ind2
-      real(REAL32) :: fld_val
+      real(REAL32) :: fld_val, tmp
 
       if (this%has_blocks()) then
          ! For a blocked field, <cols_or_block> is a block index
@@ -438,10 +479,10 @@ CONTAINS
                   ! Set num samples to 0 if this is a fill value
                   ! This will trigger logic in _value routine
                   this%data(ind1, ind2) = this%fill_value
-                  this%num_samples(ind1, ind2) = 0
+                  this%num_samples(ind1) = 0
                else
                   this%data(ind1, ind2) = fld_val
-                  this%num_samples(ind1, ind2) = 1
+                  this%num_samples(ind1) = 1
                end if
             end do
          end do
@@ -452,10 +493,10 @@ CONTAINS
                if (this%flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
                   ! only check for minimum if not a fill value
-                  if (this%num_samples(ind1, ind2) == 0) then
+                  if (this%num_samples(ind1) == 0) then
                      if (fld_val /= this%fill_value) then
                         this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1, ind2) = 1
+                        this%num_samples(ind1) = 1
                      else
                         ! Set to large positive number if this is a fill value
                         ! Also do not change num_samples - if num_samples
@@ -465,12 +506,12 @@ CONTAINS
                      end if
                   else if (fld_val < this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the minimum value for this col
                else
-                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val < this%data(ind1, ind2)) then
+                  if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1, ind2)) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the minimum value for this col
                end if
             end do
@@ -485,10 +526,10 @@ CONTAINS
                if (this%flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
                   ! only check for maximum if not a fill value
-                  if (this%num_samples(ind1, ind2) == 0) then
+                  if (this%num_samples(ind1) == 0) then
                      if (fld_val /= this%fill_value) then
                         this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1, ind2) = 1
+                        this%num_samples(ind1) = 1
                      else
                         ! Set to large negative number if this is a fill value
                         ! Also do not change num_samples - if num_samples
@@ -498,12 +539,12 @@ CONTAINS
                      end if
                   else if (fld_val > this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the maximum value for this col
                else
-                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val > this%data(ind1, ind2)) then
+                  if (this%num_samples(ind1) == 0 .or. fld_val > this%data(ind1, ind2)) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the maximum value for this col
                end if
             end do
@@ -520,11 +561,54 @@ CONTAINS
                   ! Only include sample if it's not a fill value
                   if (fld_val /= real(this%fill_value, REAL32)) then
                      this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                     this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
                   end if
                else
                   this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                  this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               end if
+            end do
+         end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
+      case (hist_accum_var)
+         do ind1 = col_beg_use, col_end_use
+            do ind2 = 1, size(field,2)
+               fld_val = field(ind1 - col_beg_use + 1, ind2)
+               if (this%flag_xyfill) then
+                  if (fld_val /= real(this%fill_value, REAL32)) then
+                     ! Only include the sample if it's not a fill value
+                     if (this%num_samples(ind1) == 0) then
+                        this%data(ind1, ind2) = fld_val
+                        this%var_buffer(ind1, ind2) = 0._REAL32
+                        this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     else
+                        tmp = this%data(ind1, ind2)
+                        this%num_samples(ind1) = this%num_samples(ind1) + 1
+                        this%data(ind1, ind2) = this%data(ind1, ind2) + &
+                                (fld_val - this%data(ind1, ind2)) / &
+                                this%num_samples(ind1)
+                        this%var_buffer(ind1, ind2) = this%var_buffer(ind1, ind2) + &
+                                (fld_val - this%data(ind1, ind2)) * &
+                                (fld_val - tmp)
+                     end if
+                  end if
+               else
+                  if (this%num_samples(ind1) == 0) then
+                     this%data(ind1, ind2) = fld_val
+                     this%var_buffer(ind1, ind2) = 0._REAL32
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  else
+                     tmp = this%data(ind1, ind2)
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     this%data(ind1, ind2) = this%data(ind1, ind2) + &
+                             (fld_val - this%data(ind1, ind2)) / &
+                             this%num_samples(ind1)
+                     this%var_buffer(ind1, ind2) = this%var_buffer(ind1, ind2) + &
+                             (fld_val - this%data(ind1, ind2)) * &
+                             (fld_val - tmp)
+                  end if
                end if
             end do
          end do
@@ -574,7 +658,7 @@ CONTAINS
       integer      :: col_beg_use
       integer      :: col_end_use
       integer      :: ind1
-      real(REAL32) :: fld_val
+      real(REAL32) :: fld_val, tmp
 
       if (this%has_blocks()) then
          ! For a blocked field, <cols_or_block> is a block index
@@ -675,6 +759,44 @@ CONTAINS
                this%num_samples(ind1) = this%num_samples(ind1) + 1
             end if
          end do
+      case (hist_accum_var)
+         do ind1 = col_beg_use, col_end_use
+            fld_val = field(ind1 - col_beg_use + 1)
+            if (this%flag_xyfill) then
+               if (fld_val /= real(this%fill_value, REAL32)) then
+                  ! Only include the sample if it's not a fill value
+                  if (this%num_samples(ind1) == 0) then
+                     this%data(ind1) = fld_val
+                     this%var_buffer(ind1) = 0._REAL32
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  else
+                     tmp = this%data(ind1)
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     this%data(ind1) = this%data(ind1) + &
+                             (fld_val - this%data(ind1)) / &
+                             this%num_samples(ind1)
+                     this%var_buffer(ind1) = this%var_buffer(ind1) + &
+                             (fld_val - this%data(ind1)) * &
+                             (fld_val - tmp)
+                  end if
+               end if
+            else
+               if (this%num_samples(ind1) == 0) then
+                  this%data(ind1) = fld_val
+                  this%var_buffer(ind1) = 0._REAL32
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               else
+                  tmp = this%data(ind1)
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  this%data(ind1) = this%data(ind1) + &
+                          (fld_val - this%data(ind1)) / &
+                          this%num_samples(ind1)
+                  this%var_buffer(ind1) = this%var_buffer(ind1) + &
+                          (fld_val - this%data(ind1)) * &
+                          (fld_val - tmp)
+               end if
+            end if
+         end do
       end select
 
    end subroutine buff_1dreal32_accum
@@ -691,15 +813,31 @@ CONTAINS
       ! Local variable
       integer :: ind1
       integer :: nacc
+      real(REAL32) :: tmpfill, variance
 
-      do ind1 = 1, size(this%data,1)
-         nacc = this%num_samples(ind1)
-         if (nacc > 0) then
-            norm_val(ind1) = this%data(ind1) / nacc
-         else if (this%flag_xyfill) then
-            norm_val(ind1) = this%fill_value
-         end if
-      end do
+      if (this%accum_type /= hist_accum_var) then
+         do ind1 = 1, size(this%data,1)
+            nacc = this%num_samples(ind1)
+            if (nacc > 0) then
+               norm_val(ind1) = this%data(ind1) / nacc
+            else if (this%flag_xyfill) then
+               norm_val(ind1) = this%fill_value
+            end if
+         end do
+      else
+         ! Standard deviation
+         ! from http://www.johndcook.com/blog/standard_deviation/
+         tmpfill = merge(real(this%fill_value, REAL32), 0.0_REAL32, this%flag_xyfill)
+         do ind1 = 1, size(this%data,1)
+            if (this%num_samples(ind1) > 0) then
+               variance = this%var_buffer(ind1) / this%num_samples(ind1)
+               norm_val(ind1) = sqrt(variance)
+            else
+               norm_val(ind1) = tmpfill
+            end if
+         end do
+      end if
+
 
    end subroutine buff_1dreal32_value
 
@@ -722,6 +860,13 @@ CONTAINS
                  subname=subname, errors=logger)
          end if
       end if
+      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+         allocate(this%var_buffer(this%field_shape(1)), stat=aerr)
+         if (aerr /= 0) then
+            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+                 subname=subname, errors=logger)
+         end if
+      end if
       if (.not. allocated(this%num_samples)) then
          allocate(this%num_samples(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
@@ -731,6 +876,9 @@ CONTAINS
       end if
       this%data = 0.0_REAL64
       this%num_samples = 0
+      if (associated(this%var_buffer)) then
+         this%var_buffer = 0.0_REAL64
+      end if
 
    end subroutine buff_1dreal64_clear
 
@@ -775,7 +923,7 @@ CONTAINS
       integer      :: col_beg_use
       integer      :: col_end_use
       integer      :: ind1
-      real(REAL64) :: fld_val
+      real(REAL64) :: fld_val, tmp
 
       if (this%has_blocks()) then
          col_end_use = this%block_ends(cols_or_block)
@@ -880,6 +1028,44 @@ CONTAINS
                this%num_samples(ind1) = this%num_samples(ind1) + 1
             end if
          end do
+      case (hist_accum_var)
+         do ind1 = col_beg_use, col_end_use
+            fld_val = field(ind1 - col_beg_use + 1)
+            if (this%flag_xyfill) then
+               if (fld_val /= real(this%fill_value, REAL64)) then
+                  ! Only include the sample if it's not a fill value
+                  if (this%num_samples(ind1) == 0) then
+                     this%data(ind1) = fld_val
+                     this%var_buffer(ind1) = 0._REAL64
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  else
+                     tmp = this%data(ind1)
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     this%data(ind1) = this%data(ind1) + &
+                             (fld_val - this%data(ind1)) / &
+                             this%num_samples(ind1)
+                     this%var_buffer(ind1) = this%var_buffer(ind1) + &
+                             (fld_val - this%data(ind1)) * &
+                             (fld_val - tmp)
+                  end if
+               end if
+            else
+               if (this%num_samples(ind1) == 0) then
+                  this%data(ind1) = fld_val
+                  this%var_buffer(ind1) = 0._REAL64
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               else
+                  tmp = this%data(ind1)
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  this%data(ind1) = this%data(ind1) + &
+                          (fld_val - this%data(ind1)) / &
+                          this%num_samples(ind1)
+                  this%var_buffer(ind1) = this%var_buffer(ind1) + &
+                          (fld_val - this%data(ind1)) * &
+                          (fld_val - tmp)
+               end if
+            end if
+         end do
       end select
 
    end subroutine buff_1dreal64_accum
@@ -895,15 +1081,30 @@ CONTAINS
       ! Local variable
       integer :: ind1
       integer :: nacc
+      real(REAL64) :: tmpfill, variance
 
-      do ind1 = 1, this%field_shape(1)
-         nacc = this%num_samples(ind1)
-         if (nacc > 0) then
-            norm_val(ind1) = this%data(ind1) / nacc
-         else if (this%flag_xyfill) then
-            norm_val(ind1) = this%fill_value
-         end if
-      end do
+      if (this%accum_type /= hist_accum_var) then
+         do ind1 = 1, this%field_shape(1)
+            nacc = this%num_samples(ind1)
+            if (nacc > 0) then
+               norm_val(ind1) = this%data(ind1) / nacc
+            else if (this%flag_xyfill) then
+               norm_val(ind1) = this%fill_value
+            end if
+         end do
+      else
+         ! Standard deviation
+         ! from http://www.johndcook.com/blog/standard_deviation/
+         tmpfill = merge(real(this%fill_value, REAL64), 0.0_REAL64, this%flag_xyfill)
+         do ind1 = 1, size(this%data,1)
+            if (this%num_samples(ind1) > 0) then
+               variance = this%var_buffer(ind1) / this%num_samples(ind1)
+               norm_val(ind1) = sqrt(variance)
+            else
+               norm_val(ind1) = tmpfill
+            end if
+         end do
+      end if
 
    end subroutine buff_1dreal64_value
 
@@ -926,8 +1127,15 @@ CONTAINS
                  subname=subname, errors=logger)
          end if
       end if
+      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+         allocate(this%var_buffer(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         if (aerr /= 0) then
+            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+                 subname=subname, errors=logger)
+         end if
+      end if
       if (.not. allocated(this%num_samples)) then
-         allocate(this%num_samples(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         allocate(this%num_samples(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('num_samples', __FILE__, __LINE__ - 1,         &
                  subname=subname, errors=logger)
@@ -935,6 +1143,9 @@ CONTAINS
       end if
       this%data = 0.0_REAL64
       this%num_samples = 0
+      if (associated(this%var_buffer)) then
+         this%var_buffer = 0.0_REAL64
+      end if
 
    end subroutine buff_2dreal64_clear
 
@@ -979,7 +1190,7 @@ CONTAINS
       integer      :: col_beg_use
       integer      :: col_end_use
       integer      :: ind1, ind2
-      real(REAL64) :: fld_val
+      real(REAL64) :: fld_val, tmp
 
       if (this%has_blocks()) then
          ! For a blocked field, <cols_or_block> is a block index
@@ -1005,10 +1216,10 @@ CONTAINS
                   ! Set num samples to 0 if this is a fill value
                   ! This will trigger logic in _value routine
                   this%data(ind1, ind2) = this%fill_value
-                  this%num_samples = 0
+                  this%num_samples(ind1) = 0
                else
                   this%data(ind1, ind2) = fld_val
-                  this%num_samples = 1
+                  this%num_samples(ind1) = 1
                end if
             end do
          end do
@@ -1019,10 +1230,10 @@ CONTAINS
                if (this%flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
                   ! only check for minimum if not a fill value
-                  if (this%num_samples(ind1, ind2) == 0) then
+                  if (this%num_samples(ind1) == 0) then
                      if (fld_val /= this%fill_value) then
                         this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1, ind2) = 1
+                        this%num_samples(ind1) = 1
                      else
                         ! Set to large positive number if this is a fill value
                         ! Also do not change num_samples - if num_samples
@@ -1032,12 +1243,12 @@ CONTAINS
                      end if
                   else if (fld_val < this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the minimum value for this col
                else
-                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val < this%data(ind1, ind2)) then
+                  if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1, ind2)) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the minimum value for this col
                end if
             end do
@@ -1052,10 +1263,10 @@ CONTAINS
                if (this%flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
                   ! only check for maximum if not a fill value
-                  if (this%num_samples(ind1, ind2) == 0) then
+                  if (this%num_samples(ind1) == 0) then
                      if (fld_val /= this%fill_value) then
                         this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1, ind2) = 1
+                        this%num_samples(ind1) = 1
                      else
                         ! Set to large negative number if this is a fill value
                         ! Also do not change num_samples - if num_samples
@@ -1065,12 +1276,12 @@ CONTAINS
                      end if
                   else if (fld_val > this%data(ind1, ind2) .and. fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if ! No else, we already have the maximum value for this col
                else
-                  if (this%num_samples(ind1, ind2) == 0 .or. fld_val > this%data(ind1, ind2)) then
+                  if (this%num_samples(ind1) == 0 .or. fld_val > this%data(ind1, ind2)) then
                      this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1, ind2) = 1
+                     this%num_samples(ind1) = 1
                   end if
                end if
             end do
@@ -1087,11 +1298,54 @@ CONTAINS
                   ! Only include sample if it is not the fill value
                   if (fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                     this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
                   end if
                else
                   this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                  this%num_samples(ind1, ind2) = this%num_samples(ind1, ind2) + 1
+                  this%num_samples(ind1) = this%num_samples(ind1) + 1
+               end if
+            end do
+         end do
+         if (this%flag_xyfill) then
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
+      case (hist_accum_var)
+         do ind1 = col_beg_use, col_end_use
+            do ind2 = 1, size(field,2)
+               fld_val = field(ind1 - col_beg_use + 1, ind2)
+               if (this%flag_xyfill) then
+                  if (fld_val /= real(this%fill_value, REAL64)) then
+                     ! Only include the sample if it's not a fill value
+                     if (this%num_samples(ind1) == 0) then
+                        this%data(ind1, ind2) = fld_val
+                        this%var_buffer(ind1, ind2) = 0._REAL64
+                        this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     else
+                        tmp = this%data(ind1, ind2)
+                        this%num_samples(ind1) = this%num_samples(ind1) + 1
+                        this%data(ind1, ind2) = this%data(ind1, ind2) + &
+                                (fld_val - this%data(ind1, ind2)) / &
+                                this%num_samples(ind1)
+                        this%var_buffer(ind1, ind2) = this%var_buffer(ind1, ind2) + &
+                                (fld_val - this%data(ind1, ind2)) * &
+                                (fld_val - tmp)
+                     end if
+                  end if
+               else
+                  if (this%num_samples(ind1) == 0) then
+                     this%data(ind1, ind2) = fld_val
+                     this%var_buffer(ind1, ind2) = 0._REAL64
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                  else
+                     tmp = this%data(ind1, ind2)
+                     this%num_samples(ind1) = this%num_samples(ind1) + 1
+                     this%data(ind1, ind2) = this%data(ind1, ind2) + &
+                             (fld_val - this%data(ind1, ind2)) / &
+                             this%num_samples(ind1)
+                     this%var_buffer(ind1, ind2) = this%var_buffer(ind1, ind2) + &
+                             (fld_val - this%data(ind1, ind2)) * &
+                             (fld_val - tmp)
+                  end if
                end if
             end do
          end do
@@ -1136,17 +1390,34 @@ CONTAINS
       ! Local variable
       integer :: ind1, ind2
       integer :: nacc
+      real(REAL64) :: tmpfill, variance
 
-      do ind1 = 1, this%field_shape(1)
-         do ind2 = 1, this%field_shape(2)
-            nacc = this%num_samples(ind1,ind2)
-            if (nacc > 0) then
-               norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
-            else if (this%flag_xyfill) then
-               norm_val(ind1, ind2) = this%fill_value
-            end if
+      if (this%accum_type /= hist_accum_var) then
+         do ind1 = 1, this%field_shape(1)
+            do ind2 = 1, this%field_shape(2)
+               nacc = this%num_samples(ind1)
+               if (nacc > 0) then
+                  norm_val(ind1, ind2) = this%data(ind1, ind2) / nacc
+               else if (this%flag_xyfill) then
+                  norm_val(ind1, ind2) = this%fill_value
+               end if
+            end do
          end do
-      end do
+      else
+         ! Standard deviation
+         ! from http://www.johndcook.com/blog/standard_deviation/
+         tmpfill = merge(real(this%fill_value, REAL64), 0.0_REAL64, this%flag_xyfill)
+         do ind1 = 1, size(this%data,1)
+            do ind2 = 1, size(this%data,2)
+               if (this%num_samples(ind1) > 0) then
+                  variance = this%var_buffer(ind1, ind2) / this%num_samples(ind1)
+                  norm_val(ind1, ind2) = sqrt(variance)
+               else
+                  norm_val(ind1, ind2) = tmpfill
+               end if
+            end do
+         end do
+      end if
 
    end subroutine buff_2dreal64_value
 
