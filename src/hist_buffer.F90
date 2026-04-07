@@ -473,26 +473,27 @@ CONTAINS
       select case (this%accum_type)
       case (hist_accum_lst)
          do ind1 = col_beg_use, col_end_use
+            this%num_samples(ind1) = 0
+            ! Only set samples to 1 if this column does not have fill values
+            if (this%flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) /= this%fill_value) then
+               this%num_samples(ind1) = 1
+            end if
             do ind2 = 1, size(field,2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (this%flag_xyfill .and. fld_val == this%fill_value) then
-                  ! Set num samples to 0 if this is a fill value
-                  ! This will trigger logic in _value routine
-                  this%data(ind1, ind2) = this%fill_value
-                  this%num_samples(ind1) = 0
-               else
-                  this%data(ind1, ind2) = fld_val
-                  this%num_samples(ind1) = 1
-               end if
+               this%data(ind1, ind2) = fld_val
             end do
          end do
+         if (this%flag_xyfill) then
+            ! Check if assumption that columns are consistent wrt fill value was accurate
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (this%flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
-                  ! only check for minimum if not a fill value
+                  ! only check for or set minimum if not a fill value
                   if (this%num_samples(ind1) == 0) then
                      if (fld_val /= this%fill_value) then
                         this%data(ind1, ind2) = fld_val
@@ -559,7 +560,7 @@ CONTAINS
                ! Compute running sum
                if (this%flag_xyfill) then
                   ! Only include sample if it's not a fill value
-                  if (fld_val /= real(this%fill_value, REAL32)) then
+                  if (fld_val /= this%fill_value) then
                      this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
                      this%num_samples(ind1) = this%num_samples(ind1) + 1
                   end if
@@ -577,7 +578,7 @@ CONTAINS
             do ind2 = 1, size(field,2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (this%flag_xyfill) then
-                  if (fld_val /= real(this%fill_value, REAL32)) then
+                  if (fld_val /= this%fill_value) then
                      ! Only include the sample if it's not a fill value
                      if (this%num_samples(ind1) == 0) then
                         this%data(ind1, ind2) = fld_val
@@ -683,7 +684,7 @@ CONTAINS
                ! Set num samples to 0 if this is a fill value
                ! This will trigger logic in _value routine
                this%data(ind1) = real(this%fill_value, REAL32)
-               this%num_samples = 0
+               this%num_samples(ind1) = 0
             else
                this%data(ind1) = fld_val
                this%num_samples(ind1) = 1
@@ -1210,19 +1211,24 @@ CONTAINS
       select case (this%accum_type)
       case (hist_accum_lst)
          do ind1 = col_beg_use, col_end_use
+            this%num_samples(ind1) = 0
+            ! Only set samples for this column if not a fill value
+            if (this%flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) /= this%fill_value) then
+               this%num_samples(ind1) = 1
+            end if
             do ind2 = 1, size(field,2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (this%flag_xyfill .and. fld_val == this%fill_value) then
-                  ! Set num samples to 0 if this is a fill value
-                  ! This will trigger logic in _value routine
                   this%data(ind1, ind2) = this%fill_value
-                  this%num_samples(ind1) = 0
                else
                   this%data(ind1, ind2) = fld_val
-                  this%num_samples(ind1) = 1
                end if
             end do
          end do
+         if (this%flag_xyfill) then
+            ! Check if assumption that columns are consistent wrt fill value was accurate
+            call this%check_fill_value(field(col_beg_use:col_end_use, :), logger)
+         end if
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
             do ind2 = 1, size(field, 2)
