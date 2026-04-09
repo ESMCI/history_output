@@ -87,7 +87,7 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_new_buffer(field, buff_shape, buff_kind, horiz_axis_ind,   &
+   subroutine hist_new_buffer(field, buff_shape, horiz_axis_ind,   &
         accum_type, output_vol, errors, block_ind, block_sizes)
       use hist_msg_handler, only: hist_log_messages, hist_add_error
       use hist_msg_handler, only: hist_add_alloc_error, ERROR
@@ -100,7 +100,6 @@ CONTAINS
       ! Dummy arguments
       class(hist_field_info_t), pointer                 :: field
       integer,                            intent(in)    :: buff_shape(:)
-      integer,                            intent(in)    :: buff_kind
       integer,                            intent(in)    :: horiz_axis_ind
       character(len=*),                   intent(in)    :: accum_type
       integer,                            intent(in)    :: output_vol
