@@ -623,9 +623,10 @@ CONTAINS
       select case (this%accum_type)
       case (hist_accum_lst)
          do ind1 = col_beg_use, col_end_use
-            this%num_samples(ind1) = 0
             ! Only set samples for this column if not a fill value
-            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) /= fill_value) then
+            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
+               this%num_samples(ind1) = 0
+            else
                this%num_samples(ind1) = 1
             end if
             do ind2 = 1, size(field,2)
