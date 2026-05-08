@@ -1,7 +1,5 @@
 module hist_api
 
-   use ISO_FORTRAN_ENV, only: REAL64, INT32, INT64
-
    implicit none
    private
 
@@ -9,9 +7,7 @@ module hist_api
    public :: hist_new_field         ! Allocate a hist_field_info_t object
    public :: hist_new_buffer        ! Create a new field buffer
    public :: hist_field_accumulate  ! Accumulate a new field state in all buffs
-   public :: hist_field_norm_value  ! Grab the norm value from field buffer
-   public :: hist_buffer_accumulate ! Accumulate a new field state
-   public :: hist_buffer_norm_value ! Return current normalized field state
+   public :: hist_field_norm_value  ! Grab the normalized value from field buffer
 
    ! Interfaces for public interfaces
    interface hist_field_accumulate
@@ -24,16 +20,6 @@ module hist_api
       module procedure hist_field_norm_value_2d
    end interface hist_field_norm_value
 
-   interface hist_buffer_accumulate
-      module procedure hist_buffer_accumulate_1d
-      module procedure hist_buffer_accumulate_2d
-   end interface hist_buffer_accumulate
-
-   interface hist_buffer_norm_value
-      module procedure hist_buffer_norm_value_1d
-      module procedure hist_buffer_norm_value_2d
-   end interface hist_buffer_norm_value
-
 CONTAINS
 
    !#######################################################################
@@ -44,6 +30,7 @@ CONTAINS
         cell_methods, errors) result(new_field)
       use hist_msg_handler, only: hist_have_error, hist_log_messages, ERROR
       use hist_field,       only: hist_field_initialize, hist_field_info_t
+      use ISO_FORTRAN_ENV,  only: REAL64
 
       type(hist_field_info_t), pointer                 :: new_field
       character(len=*),                  intent(in)    :: diag_name_in
@@ -188,6 +175,11 @@ CONTAINS
               "Unknown accumulation operator type, '",                        &
               errstr2=trim(accum_type)//"'", errors=errors)
       end select
+      ! Only real values handled right now
+      if (trim(type_str) /= 'real') then
+         call hist_add_error(subname, 'buffer type ', errstr2=type_str,       &
+                 errstr3=' unsupported', errors=errors)
+      end if
       ! We now know what sort of buffer we need
       ! Based on rank
       select case (rank)
@@ -240,7 +232,8 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE
       use hist_field,       only: hist_field_info_t
-      use hist_buffer,      only: hist_buffer_t
+      use hist_buffer,      only: hist_buff_1d_t, hist_buffer_t
+      use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t), pointer,  intent(inout) :: field
@@ -250,6 +243,7 @@ CONTAINS
       type(hist_log_messages),  optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer     :: buff_ptr
+      class(hist_buff_1d_t), pointer    :: buff
       character(len=*), parameter :: subname = 'hist_field_accumulate_1d'
 
       if (associated(field)) then
@@ -257,21 +251,24 @@ CONTAINS
          do
             if (associated(buff_ptr) .and.                                    &
                  (.not. hist_have_error(errors=logger))) then
-               call hist_buffer_accumulate(buff_ptr, data, cols_or_block,     &
-                    field%flag_xyfill(), field%fill_value(), cole=cole,       &
-                    logger=logger)
-               if (hist_have_error(errors=logger)) then
-                  call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
-                       subname=subname)
-                  exit
-               else
-                  call hist_add_message(subname, VERBOSE,                     &
-                       "Accumulated data for",                                &
-                       msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-                       msgstr3=trim(buff_ptr%buffer_type()),                  &
-                       logger=logger)
-                  buff_ptr => buff_ptr%next
-               end if
+               select type(buff_ptr)
+               class is (hist_buff_1d_t)
+                  buff => buff_ptr
+                  call buff%accumulate(data, cols_or_block, field%flag_xyfill(), &
+                          field%fill_value(), cole, logger)
+                  if (hist_have_error(errors=logger)) then
+                     call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
+                          subname=subname)
+                     exit
+                  else
+                     call hist_add_message(subname, VERBOSE,                     &
+                          "Accumulated data for",                                &
+                          msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                          msgstr3=trim(buff%buffer_type()),                  &
+                          logger=logger)
+                  end if
+               end select
+               buff_ptr => buff_ptr%next
             else
                exit
             end if
@@ -287,7 +284,8 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE
       use hist_field,       only: hist_field_info_t
-      use hist_buffer,      only: hist_buffer_t
+      use hist_buffer,      only: hist_buff_2d_t, hist_buffer_t
+      use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t), pointer,  intent(inout) :: field
@@ -297,6 +295,7 @@ CONTAINS
       type(hist_log_messages),  optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer     :: buff_ptr
+      class(hist_buff_2d_t), pointer    :: buff
       character(len=*),     parameter   :: subname = 'hist_field_accumulate_2d'
 
       if (associated(field)) then
@@ -304,21 +303,24 @@ CONTAINS
          do
             if (associated(buff_ptr) .and.                                    &
                  (.not. hist_have_error(errors=logger))) then
-               call hist_buffer_accumulate(buff_ptr, data, cols_or_block,     &
-                    field%flag_xyfill(), field%fill_value(), cole=cole,       &
-                    logger=logger)
-               if (hist_have_error(errors=logger)) then
-                  call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
-                       subname=subname)
-                  exit
-               else
-                  call hist_add_message(subname, VERBOSE,                     &
-                       "Accumulated data for",                                &
-                       msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-                       msgstr3=trim(buff_ptr%buffer_type()),                  &
-                       logger=logger)
-                  buff_ptr => buff_ptr%next
-               end if
+               select type (buff_ptr)
+               class is (hist_buff_2d_t)
+                  buff => buff_ptr
+                  call buff%accumulate(data, cols_or_block, field%flag_xyfill(), &
+                          field%fill_value(), cole, logger)
+                  if (hist_have_error(errors=logger)) then
+                     call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
+                          subname=subname)
+                     exit
+                  else
+                     call hist_add_message(subname, VERBOSE,                     &
+                          "Accumulated data for",                                &
+                          msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                          msgstr3=trim(buff%buffer_type()),                  &
+                          logger=logger)
+                  end if
+               end select
+               buff_ptr => buff_ptr%next
             else
                exit
             end if
@@ -329,87 +331,41 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_buffer_accumulate_1d(buffer, field, cols_or_block,   &
-        flag_xyfill, fill_value, cole, logger)
-      use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
-      use hist_msg_handler, only: hist_log_messages
-
-      ! Dummy arguments
-      class(hist_buffer_t),    target,   intent(inout) :: buffer
-      real(REAL64),                      intent(in)    :: field(:)
-      integer,                           intent(in)    :: cols_or_block
-      logical,                           intent(in)    :: flag_xyfill
-      real(REAL64),                      intent(in)    :: fill_value
-      integer,                 optional, intent(in)    :: cole
-      type(hist_log_messages), optional, intent(inout) :: logger
-      ! Local variable
-      class(hist_buff_1d_t), pointer :: buff
-
-      select type (buffer)
-      class is (hist_buff_1d_t)
-         buff => buffer
-         call buff%accumulate(field, cols_or_block, flag_xyfill, fill_value, cole, logger)
-      end select
-
-   end subroutine hist_buffer_accumulate_1d
-
-   !#######################################################################
-
-   subroutine hist_buffer_accumulate_2d(buffer, field, cols_or_block,   &
-        flag_xyfill, fill_value, cole, logger)
-      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
-      use hist_msg_handler, only: hist_log_messages
-
-      ! Dummy arguments
-      class(hist_buffer_t),    target,   intent(inout) :: buffer
-      real(REAL64),                      intent(in)    :: field(:,:)
-      integer,                           intent(in)    :: cols_or_block
-      logical,                           intent(in)    :: flag_xyfill
-      real(REAL64),                      intent(in)    :: fill_value
-      integer,                 optional, intent(in)    :: cole
-      type(hist_log_messages), optional, intent(inout) :: logger
-      ! Local variable
-      class(hist_buff_2d_t), pointer :: buff
-
-      select type (buffer)
-      class is (hist_buff_2d_t)
-         buff => buffer
-         call buff%accumulate(field, cols_or_block, flag_xyfill, fill_value, cole, logger)
-      end select
-
-   end subroutine hist_buffer_accumulate_2d
-
-   !#######################################################################
-
    subroutine hist_field_norm_value_1d(field, norm_val, logger)
-      use hist_buffer,      only: hist_buffer_t
+      use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE
       use hist_field,       only: hist_field_info_t
+      use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t), intent(inout) :: field
+      class(hist_field_info_t),          intent(inout) :: field
       real(REAL64),                      intent(inout) :: norm_val(:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
-      class(hist_buffer_t), pointer :: buff_ptr
-      character(len=*), parameter   :: subname = 'hist_field_norm_value_1d'
+      class(hist_buffer_t), pointer  :: buff_ptr
+      class(hist_buff_1d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_norm_value_1d'
 
       buff_ptr => field%buffers
       if (associated(buff_ptr) .and.                                  &
          (.not. hist_have_error(errors=logger))) then
-         call hist_buffer_norm_value(buff_ptr, norm_val,              &
-            field%flag_xyfill(), field%fill_value(), logger=logger)
-         if (hist_have_error(errors=logger)) then
-            call logger%add_stack_frame(ERROR, __FILE__, __LINE__-3,  &
-               subname=subname)
-         else
-            call hist_add_message(subname, VERBOSE,                   &
-               "Accumulated data for",                                &
-               msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-               msgstr3=trim(buff_ptr%buffer_type()),                  &
-               logger=logger)
-          end if
+         select type(buff_ptr)
+         class is (hist_buff_1d_t)
+            buff => buff_ptr
+            call buff%norm_value(norm_val, field%flag_xyfill(), &
+                    field%fill_value(), logger=logger)
+            if (hist_have_error(errors=logger)) then
+               call logger%add_stack_frame(ERROR, __FILE__, __LINE__-3,  &
+                  subname=subname)
+            else
+               call hist_add_message(subname, VERBOSE,                   &
+                  "Accumulated data for",                                &
+                  msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                  msgstr3=trim(buff%buffer_type()),                  &
+                  logger=logger)
+            end if
+         end select
       end if
 
    end subroutine hist_field_norm_value_1d
@@ -417,84 +373,42 @@ CONTAINS
    !#######################################################################
 
    subroutine hist_field_norm_value_2d(field, norm_val, logger)
-      use hist_buffer,      only: hist_buffer_t
+      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE
       use hist_field,       only: hist_field_info_t
+      use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t),          intent(inout) :: field
       real(REAL64),                      intent(inout) :: norm_val(:,:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
-      class(hist_buffer_t), pointer :: buff_ptr
-      character(len=*), parameter   :: subname = 'hist_field_norm_value_2d'
+      class(hist_buffer_t), pointer  :: buff_ptr
+      class(hist_buff_2d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_norm_value_2d'
 
       buff_ptr => field%buffers
       if (associated(buff_ptr) .and.                                  &
          (.not. hist_have_error(errors=logger))) then
-         call hist_buffer_norm_value(buff_ptr, norm_val,              &
-            field%flag_xyfill(), field%fill_value(), logger=logger)
-         if (hist_have_error(errors=logger)) then
-            call logger%add_stack_frame(ERROR, __FILE__, __LINE__-3,  &
-               subname=subname)
-         else
-            call hist_add_message(subname, VERBOSE,                   &
-               "Accumulated data for",                                &
-               msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-               msgstr3=trim(buff_ptr%buffer_type()),                  &
-               logger=logger)
-         end if
+         select type(buff_ptr)
+         class is (hist_buff_2d_t)
+            buff => buff_ptr
+            call buff%norm_value(norm_val, field%flag_xyfill(), &
+                    field%fill_value(), logger=logger)
+            if (hist_have_error(errors=logger)) then
+              call logger%add_stack_frame(ERROR, __FILE__, __LINE__-3,  &
+                 subname=subname)
+            else
+               call hist_add_message(subname, VERBOSE,                   &
+                  "Accumulated data for",                                &
+                  msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                  msgstr3=trim(buff_ptr%buffer_type()),                  &
+                  logger=logger)
+            end if
+         end select
       end if
 
    end subroutine hist_field_norm_value_2d
-
-   !#######################################################################
-
-   subroutine hist_buffer_norm_value_1d(buffer, norm_val, flag_xyfill, fill_value, &
-      logger)
-      use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
-      use hist_msg_handler, only: hist_log_messages
-
-      ! Dummy arguments
-      class(hist_buffer_t),    target,   intent(inout) :: buffer
-      real(REAL64),                      intent(inout) :: norm_val(:)
-      logical,                           intent(in)    :: flag_xyfill
-      real(REAL64),                      intent(in)    :: fill_value
-      type(hist_log_messages), optional, intent(inout) :: logger
-      ! Local variable
-      class(hist_buff_1d_t) , pointer :: buff
-
-      select type (buffer)
-      class is (hist_buff_1d_t)
-         buff => buffer
-         call buff%norm_value(norm_val, flag_xyfill, fill_value, logger=logger)
-      end select
-
-   end subroutine hist_buffer_norm_value_1d
-
-   !#######################################################################
-
-   subroutine hist_buffer_norm_value_2d(buffer, norm_val, flag_xyfill, fill_value, &
-      logger)
-      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
-      use hist_msg_handler, only: hist_log_messages
-
-      ! Dummy arguments
-      class(hist_buffer_t),    target,   intent(inout) :: buffer
-      real(REAL64),                      intent(inout) :: norm_val(:,:)
-      logical,                           intent(in)    :: flag_xyfill
-      real(REAL64),                      intent(in)    :: fill_value
-      type(hist_log_messages), optional, intent(inout) :: logger
-      ! Local variable
-      class(hist_buff_2d_t), pointer :: buff
-
-      select type (buffer)
-      class is (hist_buff_2d_t)
-         buff => buffer
-         call buff%norm_value(norm_val, flag_xyfill, fill_value, logger=logger)
-      end select
-
-   end subroutine hist_buffer_norm_value_2d
 
 end module hist_api

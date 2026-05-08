@@ -1,5 +1,5 @@
 module hist_buffer
-   use ISO_FORTRAN_ENV, only: REAL64, INT32, INT64
+   use ISO_FORTRAN_ENV, only: REAL64
    use hist_hashable,   only: hist_hashable_t
 
    implicit none
@@ -7,7 +7,7 @@ module hist_buffer
 
    ! Public interfaces
    public :: buffer_factory
-   
+
    ! Accumulation types -- the integers and array positions below must match
    integer, parameter, public :: hist_accum_lst = 1 ! last sample
    integer, parameter, public :: hist_accum_min = 2 ! minimum sample
@@ -53,8 +53,8 @@ module hist_buffer
    end type hist_buffer_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_1d_t
-      real(REAL64), pointer :: data(:) => NULL()
-      real(REAL64), pointer :: var_buffer(:) => NULL()
+      real(REAL64), allocatable :: data(:)
+      real(REAL64), allocatable :: var_buffer(:)
       integer,  allocatable,   private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_1d_clear
@@ -64,8 +64,8 @@ module hist_buffer
    end type hist_buff_1d_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_2d_t
-      real(REAL64), pointer :: data(:,:) => NULL()
-      real(REAL64), pointer :: var_buffer(:,:) => NULL()
+      real(REAL64), allocatable :: data(:,:)
+      real(REAL64), allocatable :: var_buffer(:,:)
       integer, allocatable,    private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_2d_clear
@@ -266,14 +266,14 @@ CONTAINS
       integer                     :: aerr
       character(len=*), parameter :: subname = 'buff_1d_clear'
 
-      if (.not. associated(this%data)) then
+      if (.not. allocated(this%data)) then
          allocate(this%data(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('data', __FILE__, __LINE__ - 1,         &
                  subname=subname, errors=logger)
          end if
       end if
-      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+      if (.not. allocated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
          allocate(this%var_buffer(this%field_shape(1)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
@@ -289,7 +289,7 @@ CONTAINS
       end if
       this%data = 0.0_REAL64
       this%num_samples = 0
-      if (associated(this%var_buffer)) then
+      if (allocated(this%var_buffer)) then
          this%var_buffer = 0.0_REAL64
       end if
 
@@ -301,7 +301,7 @@ CONTAINS
         accum_type_in, shape_in, block_sizes_in, block_ind_in, logger)
       use hist_msg_handler, only: hist_log_messages
 
-      class(hist_buff_1d_t),       intent(inout) :: this
+      class(hist_buff_1d_t),             intent(inout) :: this
       class(hist_hashable_t),  pointer                 :: field_in
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
@@ -441,6 +441,8 @@ CONTAINS
             end if
          end do
       case (hist_accum_var)
+         ! Standard deviation using Welford's algorithm
+         ! DOI: 10.1080/00401706.1962.10490022
          do ind1 = col_beg_use, col_end_use
             fld_val = field(ind1 - col_beg_use + 1)
             if (flag_xyfill) then
@@ -507,10 +509,10 @@ CONTAINS
             end if
          end do
       else
-         ! Standard deviation
-         ! from http://www.johndcook.com/blog/standard_deviation/
+         ! Standard deviation using Welford's algorithm
+         ! DOI: 10.1080/00401706.1962.10490022
          tmpfill = merge(fill_value, 0.0_REAL64, flag_xyfill)
-         do ind1 = 1, size(this%data,1)
+         do ind1 = 1, this%field_shape(1)
             if (this%num_samples(ind1) > 0) then
                variance = this%var_buffer(ind1) / this%num_samples(ind1)
                norm_val(ind1) = sqrt(variance)
@@ -534,14 +536,14 @@ CONTAINS
       integer                     :: aerr
       character(len=*), parameter :: subname = 'buff_2d_clear'
 
-      if (.not. associated(this%data)) then
+      if (.not. allocated(this%data)) then
          allocate(this%data(this%field_shape(1), this%field_shape(2)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('data', __FILE__, __LINE__ - 1,         &
                  subname=subname, errors=logger)
          end if
       end if
-      if (.not. associated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
+      if (.not. allocated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
          allocate(this%var_buffer(this%field_shape(1), this%field_shape(2)), stat=aerr)
          if (aerr /= 0) then
             call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
@@ -557,7 +559,7 @@ CONTAINS
       end if
       this%data = 0.0_REAL64
       this%num_samples = 0
-      if (associated(this%var_buffer)) then
+      if (allocated(this%var_buffer)) then
          this%var_buffer = 0.0_REAL64
       end if
 
@@ -629,7 +631,7 @@ CONTAINS
             else
                this%num_samples(ind1) = 1
             end if
-            do ind2 = 1, size(field,2)
+            do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (flag_xyfill .and. fld_val == fill_value) then
                   this%data(ind1, ind2) = fill_value
@@ -644,7 +646,7 @@ CONTAINS
          end if
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
-            do ind2 = 1, size(field, 2)
+            do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
@@ -677,7 +679,7 @@ CONTAINS
          end if
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
-            do ind2 = 1, size(field, 2)
+            do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (flag_xyfill) then
                   ! If the buffer (possibly) contains fill values,
@@ -710,7 +712,7 @@ CONTAINS
          end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
-            do ind2 = 1, size(field, 2)
+            do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                ! Compute running sum
                if (flag_xyfill) then
@@ -729,13 +731,15 @@ CONTAINS
             call this%check_fill_value(field(col_beg_use:col_end_use, :), fill_value, logger)
          end if
       case (hist_accum_var)
+         ! Standard deviation using Welford's algorithm
+         ! DOI: 10.1080/00401706.1962.10490022
          do ind1 = col_beg_use, col_end_use
             if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
                this%num_samples(ind1) = this%num_samples(ind1)
             else
                this%num_samples(ind1) = this%num_samples(ind1) + 1
             end if
-            do ind2 = 1, size(field,2)
+            do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                if (flag_xyfill) then
                   if (fld_val /= fill_value) then
@@ -788,16 +792,24 @@ CONTAINS
       ! Local variables
       character(len=512) :: errstr
       integer :: idx, jdx
+      logical :: error_found
 
-      do jdx = 2, size(field, 2)
-         do idx = 1, size(field, 1)
+      error_found = .false.
+      do jdx = 2, this%field_shape(2)
+         do idx = 1, this%field_shape(1)
             if (field(idx,1) == fill_value .and. field(idx,jdx) /= fill_value .or. &
                  field(idx,1) /= fill_value .and. field(idx,jdx) == fill_value) then
                write(errstr, '(a,i0)') 'ERROR: fill value applied inconsistently for column ', idx
                call hist_add_error('buff_2d_check_fill', errstr, errors=logger)
+               error_found = .true.
+               exit
             end if
          end do
+         if (error_found) then
+            exit
+         end if
       end do
+
    end subroutine buff_2d_check_fill
 
    !#######################################################################
@@ -827,11 +839,11 @@ CONTAINS
             end do
          end do
       else
-         ! Standard deviation
-         ! from http://www.johndcook.com/blog/standard_deviation/
+         ! Standard deviation using Welford's algorithm
+         ! DOI: 10.1080/00401706.1962.10490022
          tmpfill = merge(fill_value, 0.0_REAL64, flag_xyfill)
-         do ind1 = 1, size(this%data,1)
-            do ind2 = 1, size(this%data,2)
+         do ind1 = 1, this%field_shape(1)
+            do ind2 = 1, this%field_shape(2)
                if (this%num_samples(ind1) > 0) then
                   variance = this%var_buffer(ind1, ind2) / this%num_samples(ind1)
                   norm_val(ind1, ind2) = sqrt(variance)
@@ -869,8 +881,9 @@ CONTAINS
       type(hist_log_messages), optional, intent(inout) :: logger
 
       ! Local variables
-      character(len=*),                parameter :: subname = 'buffer_factory'
-      ! For buffer                     allocation
+      character(len=*),   parameter :: subname = 'buffer_factory'
+      character(len=512)            :: alloc_errmsg
+      ! For buffer allocation
       integer                                    :: aerr
       type(hist_buff_1d_t), pointer :: real_1 => NULL()
       type(hist_buff_2d_t), pointer :: real_2 => NULL()
@@ -879,14 +892,22 @@ CONTAINS
       ! Create new buffer
       select case (trim(buffer_type))
       case ('real_1')
-         allocate(real_1, stat=aerr)
+         allocate(real_1, stat=aerr, errmsg=alloc_errmsg)
          if (aerr == 0) then
             newbuf => real_1
+         else
+            call hist_add_error(subname, &
+               "Failed to allocate real_1 buffer, errmsg = ", &
+               errstr2=trim(alloc_errmsg), errors=logger)
          end if
       case ('real_2')
-         allocate(real_2, stat=aerr)
+         allocate(real_2, stat=aerr, errmsg=alloc_errmsg)
          if (aerr == 0) then
             newbuf => real_2
+         else
+            call hist_add_error(subname, &
+               "Failed to allocate real_2 buffer, errmsg = ", &
+               errstr2=trim(alloc_errmsg), errors=logger)
          end if
       case default
          call hist_add_error(subname,                                         &

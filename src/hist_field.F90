@@ -177,7 +177,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_diag_name(this) result(info)
+   pure function get_diag_name(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -186,7 +186,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_standard_name(this) result(info)
+   pure function get_standard_name(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -195,7 +195,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_long_name(this) result(info)
+   pure function get_long_name(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -204,7 +204,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_units(this) result(info)
+   pure function get_units(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -213,7 +213,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_type(this) result(info)
+   pure function get_type(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -222,7 +222,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_kind(this) result(info)
+   pure function get_kind(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -231,7 +231,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_accumulate_type(this) result(info)
+   pure function get_accumulate_type(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -240,7 +240,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_decomp(this) result(decomp)
+   pure function get_decomp(this) result(decomp)
       class(hist_field_info_t), intent(in) :: this
       integer                              :: decomp
 
@@ -249,7 +249,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_num_levels(this) result(num_levels)
+   pure function get_num_levels(this) result(num_levels)
       class(hist_field_info_t), intent(in) :: this
       integer                              :: num_levels
 
@@ -258,7 +258,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_dimensions(this) result(dimensions)
+   pure function get_dimensions(this) result(dimensions)
       class(hist_field_info_t), intent(in) :: this
       integer,   allocatable               :: dimensions(:)
       allocate(dimensions(size(this%field_dimensions)))
@@ -267,7 +267,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_beg_dims(this) result(beg_dim)
+   pure function get_beg_dims(this) result(beg_dim)
       class(hist_field_info_t), intent(in) :: this
       integer,   allocatable               :: beg_dim(:)
       if (allocated(this%field_beg_dims)) then
@@ -278,7 +278,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_end_dims(this) result(end_dim)
+   pure function get_end_dims(this) result(end_dim)
       class(hist_field_info_t), intent(in) :: this
       integer,   allocatable               :: end_dim(:)
       if (allocated(this%field_end_dims)) then
@@ -289,7 +289,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_shape(this) result(field_shape)
+   pure function get_shape(this) result(field_shape)
       class(hist_field_info_t), intent(in) :: this
       integer,   allocatable               :: field_shape(:)
       allocate(field_shape(size(this%field_shape)))
@@ -298,7 +298,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_sampling_sequence(this) result(info)
+   pure function get_sampling_sequence(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -307,7 +307,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_flag_xyfill(this) result(flag_xyfill)
+   pure function get_flag_xyfill(this) result(flag_xyfill)
       class(hist_field_info_t), intent(in) :: this
       logical                              :: flag_xyfill
 
@@ -317,7 +317,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_fill_value(this) result(fill_value)
+   pure function get_fill_value(this) result(fill_value)
       class(hist_field_info_t), intent(in) :: this
       real(REAL64)                         :: fill_value
 
@@ -327,7 +327,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_mixing_ratio(this) result(info)
+   pure function get_mixing_ratio(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
@@ -336,7 +336,7 @@ CONTAINS
 
    !#######################################################################
 
-   function get_cell_methods(this) result(info)
+   pure function get_cell_methods(this) result(info)
       class(hist_field_info_t), intent(in) :: this
       character(len=:), allocatable        :: info
 
