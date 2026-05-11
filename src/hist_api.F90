@@ -230,7 +230,7 @@ CONTAINS
    subroutine hist_field_accumulate_1d(field, data, cols_or_block,      &
         cole, logger)
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE
+      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use hist_buffer,      only: hist_buff_1d_t, hist_buffer_t
       use ISO_FORTRAN_ENV,  only: REAL64
@@ -267,6 +267,8 @@ CONTAINS
                           msgstr3=trim(buff%buffer_type()),                  &
                           logger=logger)
                   end if
+               class default
+                  call hist_add_error(subname, 'invalid buffer type', errors=errors)
                end select
                buff_ptr => buff_ptr%next
             else
@@ -282,7 +284,7 @@ CONTAINS
    subroutine hist_field_accumulate_2d(field, data, cols_or_block,      &
         cole, logger)
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE
+      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use hist_buffer,      only: hist_buff_2d_t, hist_buffer_t
       use ISO_FORTRAN_ENV,  only: REAL64
@@ -319,6 +321,8 @@ CONTAINS
                           msgstr3=trim(buff%buffer_type()),                  &
                           logger=logger)
                   end if
+               class default
+                  call hist_add_error(subname, 'invalid buffer type', errors=errors)
                end select
                buff_ptr => buff_ptr%next
             else
@@ -334,7 +338,7 @@ CONTAINS
    subroutine hist_field_norm_value_1d(field, norm_val, logger)
       use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE
+      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use ISO_FORTRAN_ENV,  only: REAL64
 
@@ -365,6 +369,8 @@ CONTAINS
                   msgstr3=trim(buff%buffer_type()),                  &
                   logger=logger)
             end if
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=errors)
          end select
       end if
 
@@ -375,7 +381,7 @@ CONTAINS
    subroutine hist_field_norm_value_2d(field, norm_val, logger)
       use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE
+      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use ISO_FORTRAN_ENV,  only: REAL64
 
@@ -406,6 +412,8 @@ CONTAINS
                   msgstr3=trim(buff_ptr%buffer_type()),                  &
                   logger=logger)
             end if
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=errors)
          end select
       end if
 
