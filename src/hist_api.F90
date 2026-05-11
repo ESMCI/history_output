@@ -268,7 +268,7 @@ CONTAINS
                           logger=logger)
                   end if
                class default
-                  call hist_add_error(subname, 'invalid buffer type', errors=errors)
+                  call hist_add_error(subname, 'invalid buffer type', errors=logger)
                end select
                buff_ptr => buff_ptr%next
             else
@@ -322,7 +322,7 @@ CONTAINS
                           logger=logger)
                   end if
                class default
-                  call hist_add_error(subname, 'invalid buffer type', errors=errors)
+                  call hist_add_error(subname, 'invalid buffer type', errors=logger)
                end select
                buff_ptr => buff_ptr%next
             else
@@ -370,7 +370,7 @@ CONTAINS
                   logger=logger)
             end if
          class default
-            call hist_add_error(subname, 'invalid buffer type', errors=errors)
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
          end select
       end if
 
@@ -413,7 +413,7 @@ CONTAINS
                   logger=logger)
             end if
          class default
-            call hist_add_error(subname, 'invalid buffer type', errors=errors)
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
          end select
       end if
 
