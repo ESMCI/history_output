@@ -712,6 +712,11 @@ CONTAINS
          end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
+            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
+               this%num_samples(ind1) = this%num_samples(ind1)
+            else
+               this%num_samples(ind1) = this%num_samples(ind1) + 1
+            end if
             do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                ! Compute running sum
@@ -719,11 +724,9 @@ CONTAINS
                   ! Only include sample if it is not the fill value
                   if (fld_val /= fill_value) then
                      this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                     this%num_samples(ind1) = this%num_samples(ind1) + 1
                   end if
                else
                   this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                  this%num_samples(ind1) = this%num_samples(ind1) + 1
                end if
             end do
          end do
