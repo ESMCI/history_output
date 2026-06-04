@@ -389,7 +389,7 @@ CONTAINS
                   end if
                else if (fld_val < this%data(ind1) .and. fld_val /= fill_value) then
                   this%data(ind1) = fld_val
-                  this%data(ind1) = 1
+                  this%num_samples(ind1) = 1
                end if ! No else, we already have the minimum value for this col
             else
                if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1)) then
@@ -711,9 +711,7 @@ CONTAINS
          end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
-            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
-               this%num_samples(ind1) = this%num_samples(ind1)
-            else
+            if (.not. (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value)) then
                this%num_samples(ind1) = this%num_samples(ind1) + 1
             end if
             do ind2 = 1, this%field_shape(2)
