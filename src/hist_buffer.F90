@@ -404,7 +404,7 @@ CONTAINS
                   end if
                else if (fld_val < this%data(ind1) .and. fld_val /= fill_value) then
                   this%data(ind1) = fld_val
-                  this%data(ind1) = 1
+                  this%num_samples(ind1) = 1
                end if ! No else, we already have the minimum value for this col
             else
                if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1)) then
@@ -661,75 +661,72 @@ CONTAINS
          end if
       case (hist_accum_min)
          do ind1 = col_beg_use, col_end_use
-            do ind2 = 1, this%field_shape(2)
-               fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (flag_xyfill) then
-                  ! If the buffer (possibly) contains fill values,
-                  ! only check for minimum if not a fill value
-                  if (this%num_samples(ind1) == 0) then
-                     if (fld_val /= fill_value) then
-                        this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1) = 1
-                     else
-                        ! Set to large positive number if this is a fill value
-                        ! Also do not change num_samples - if num_samples
-                        ! is zero at the end of the accumulation period,
-                        ! the value will be overwritten to fill_value
-                        this%data(ind1, ind2) = HUGE(REAL64)
-                     end if
-                  else if (fld_val < this%data(ind1, ind2) .and. fld_val /= fill_value) then
-                     this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1) = 1
-                  end if ! No else, we already have the minimum value for this col
-               else
-                  if (this%num_samples(ind1) == 0 .or. fld_val < this%data(ind1, ind2)) then
-                     this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1) = 1
-                  end if ! No else, we already have the minimum value for this col
+            ! Has this column been sampled yet?
+            if (this%num_samples(ind1) == 0) then
+               ! First sample for this column: initialize all levels.
+               ! Skip fill value columns (num_samples stays 0;
+               ! buff_2d_value will write fill_value at output time)
+               if (.not. (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value)) then
+                  do ind2 = 1, this%field_shape(2)
+                     this%data(ind1, ind2) = field(ind1 - col_beg_use + 1, ind2)
+                  end do
+                  this%num_samples(ind1) = 1
                end if
-            end do
+            else
+               ! Subsequent samples in column: update minimum per level
+               do ind2 = 1, this%field_shape(2)
+                  fld_val = field(ind1 - col_beg_use + 1, ind2)
+                  if (flag_xyfill) then
+                     if (fld_val < this%data(ind1, ind2) .and. &
+                         fld_val /= fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                     end if
+                  else
+                     if (fld_val < this%data(ind1, ind2)) then
+                        this%data(ind1, ind2) = fld_val
+                     end if
+                  end if
+               end do
+            end if
          end do
          if (flag_xyfill) then
             call this%check_fill_value(field(col_beg_use:col_end_use, :), fill_value, logger)
          end if
       case (hist_accum_max)
          do ind1 = col_beg_use, col_end_use
-            do ind2 = 1, this%field_shape(2)
-               fld_val = field(ind1 - col_beg_use + 1, ind2)
-               if (flag_xyfill) then
-                  ! If the buffer (possibly) contains fill values,
-                  ! only check for maximum if not a fill value
-                  if (this%num_samples(ind1) == 0) then
-                     if (fld_val /= fill_value) then
-                        this%data(ind1, ind2) = fld_val
-                        this%num_samples(ind1) = 1
-                     else
-                        ! Set to large negative number if this is a fill value
-                        ! Also do not change num_samples - if num_samples
-                        ! is zero at the end of the accumulation period,
-                        ! the value will be overwritten to fill_value
-                        this%data(ind1, ind2) = -HUGE(REAL64)
-                     end if
-                  else if (fld_val > this%data(ind1, ind2) .and. fld_val /= fill_value) then
-                     this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1) = 1
-                  end if ! No else, we already have the maximum value for this col
-               else
-                  if (this%num_samples(ind1) == 0 .or. fld_val > this%data(ind1, ind2)) then
-                     this%data(ind1, ind2) = fld_val
-                     this%num_samples(ind1) = 1
-                  end if
+            ! Has this column been sampled yet?
+            if (this%num_samples(ind1) == 0) then
+               ! First sample for this column: initialize all levels.
+               ! Skip fill value columns (num_samples stays 0;
+               ! buff_2d_value will write fill_value at output time)
+               if (.not. (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value)) then
+                  do ind2 = 1, this%field_shape(2)
+                     this%data(ind1, ind2) = field(ind1 - col_beg_use + 1, ind2)
+                  end do
+                  this%num_samples(ind1) = 1
                end if
-            end do
+            else
+               ! Subsequent samples: update maximum per level
+               do ind2 = 1, this%field_shape(2)
+                  fld_val = field(ind1 - col_beg_use + 1, ind2)
+                  if (flag_xyfill) then
+                     if (fld_val > this%data(ind1, ind2) .and. fld_val /= fill_value) then
+                        this%data(ind1, ind2) = fld_val
+                     end if
+                  else
+                     if (fld_val > this%data(ind1, ind2)) then
+                        this%data(ind1, ind2) = fld_val
+                     end if
+                  end if
+               end do
+            end if
          end do
          if (flag_xyfill) then
             call this%check_fill_value(field(col_beg_use:col_end_use, :), fill_value, logger)
          end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
-            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
-               this%num_samples(ind1) = this%num_samples(ind1)
-            else
+            if (.not. (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value)) then
                this%num_samples(ind1) = this%num_samples(ind1) + 1
             end if
             do ind2 = 1, this%field_shape(2)
