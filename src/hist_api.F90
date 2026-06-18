@@ -1,4 +1,5 @@
 module hist_api
+   use cam_logfile, only: iulog
 
    implicit none
    private
@@ -9,6 +10,8 @@ module hist_api
    public :: hist_field_accumulate  ! Accumulate a new field state in all buffs
    public :: hist_field_norm_value  ! Grab the normalized value from field buffer
    public :: hist_field_value       ! Grab the current values of the field buffer
+   public :: hist_field_samples     ! Grab the number of samples for accumulated fields
+   public :: hist_field_var_buffer  ! Grab the variance (standard dev.) buffer
 
    ! Interfaces for public interfaces
    interface hist_field_accumulate
@@ -25,6 +28,11 @@ module hist_api
       module procedure hist_field_value_1d
       module procedure hist_field_value_2d
    end interface hist_field_value
+
+   interface hist_field_var_buffer
+      module procedure hist_field_var_buffer_1d
+      module procedure hist_field_var_buffer_2d
+   end interface hist_field_var_buffer
 
 CONTAINS
 
@@ -488,5 +496,90 @@ CONTAINS
       end if
 
    end subroutine hist_field_value_2d
+
+   !#######################################################################
+
+   subroutine hist_field_var_buffer_1d(field, var_buffer, logger)
+      use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use hist_field,       only: hist_field_info_t
+      use ISO_FORTRAN_ENV,  only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(inout) :: var_buffer(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_1d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_var_buffer_1d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_1d_t)
+            buff => buff_ptr
+            call buff%get_var_buffer(var_buffer)
+            write(iulog,*) 'peverwhee - var buffer in api'
+            write(iulog,*) var_buffer
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_var_buffer_1d
+
+   !#######################################################################
+
+   subroutine hist_field_var_buffer_2d(field, var_buffer, logger)
+      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use hist_field,       only: hist_field_info_t
+      use ISO_FORTRAN_ENV,  only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(inout) :: var_buffer(:,:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_2d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_var_buffer_2d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_2d_t)
+            buff => buff_ptr
+            call buff%get_var_buffer(var_buffer)
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_var_buffer_2d
+
+   !#######################################################################
+
+   subroutine hist_field_samples(field, samples)
+      use hist_buffer,      only: hist_buffer_t
+      use hist_field,       only: hist_field_info_t
+
+      ! Dummy arguments
+      class(hist_field_info_t),          intent(inout) :: field
+      integer,      allocatable,         intent(inout) :: samples(:)
+      ! Local variables
+      class(hist_buffer_t), pointer  :: buff_ptr
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr)) then
+         samples =  buff_ptr%get_num_samples()
+      end if
+
+   end subroutine hist_field_samples
 
 end module hist_api

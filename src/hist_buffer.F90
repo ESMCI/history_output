@@ -36,6 +36,7 @@ module hist_buffer
       integer,                allocatable, private :: field_shape(:)
       integer,                allocatable, private :: block_begs(:)
       integer,                allocatable, private :: block_ends(:)
+      integer,                allocatable, private :: num_samples(:)
       character(len=:),       allocatable, private :: buff_type
       class(hist_buffer_t),   pointer              :: next => NULL()
    contains
@@ -48,6 +49,7 @@ module hist_buffer
       procedure                              :: buffer_type
       procedure                              :: check_status
       procedure                              :: has_blocks
+      procedure                              :: get_num_samples
       procedure(hist_buff_clear),   deferred :: clear
       procedure(hist_buff_init),    deferred :: initialize
    end type hist_buffer_t
@@ -55,24 +57,24 @@ module hist_buffer
    type, public, extends(hist_buffer_t) :: hist_buff_1d_t
       real(REAL64), allocatable :: data(:)
       real(REAL64), allocatable :: var_buffer(:)
-      integer,  allocatable,   private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_1d_clear
       procedure :: accumulate => buff_1d_accum
       procedure :: norm_value => buff_1d_value
       procedure :: initialize => init_buff_1d
+      procedure :: get_var_buffer => get_var_buffer_1d
    end type hist_buff_1d_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_2d_t
       real(REAL64), allocatable :: data(:,:)
       real(REAL64), allocatable :: var_buffer(:,:)
-      integer, allocatable,    private :: num_samples(:)
    CONTAINS
       procedure :: clear => buff_2d_clear
       procedure :: accumulate => buff_2d_accum
       procedure :: norm_value => buff_2d_value
       procedure :: initialize => init_buff_2d
       procedure :: check_fill_value => buff_2d_check_fill
+      procedure :: get_var_buffer => get_var_buffer_2d
    end type hist_buff_2d_t
 
    ! Abstract interfaces for hist_buffer_t class
@@ -186,6 +188,19 @@ CONTAINS
       has_blocks = allocated(this%block_begs) .and. allocated(this%block_ends)
 
    end function has_blocks
+
+   !#######################################################################
+
+   function get_num_samples(this) result(samples)
+      ! Dummy arguments
+      class(hist_buffer_t), intent(inout) :: this
+      integer, allocatable                :: samples(:)
+
+      allocate(samples(size(this%num_samples)))
+
+      samples = this%num_samples
+
+   end function get_num_samples
 
    !#######################################################################
 
@@ -712,6 +727,11 @@ CONTAINS
          end if
       case (hist_accum_avg)
          do ind1 = col_beg_use, col_end_use
+            if (flag_xyfill .and. field(ind1 - col_beg_use + 1, 1) == fill_value) then
+               this%num_samples(ind1) = this%num_samples(ind1)
+            else
+               this%num_samples(ind1) = this%num_samples(ind1) + 1
+            end if
             do ind2 = 1, this%field_shape(2)
                fld_val = field(ind1 - col_beg_use + 1, ind2)
                ! Compute running sum
@@ -719,11 +739,9 @@ CONTAINS
                   ! Only include sample if it is not the fill value
                   if (fld_val /= fill_value) then
                      this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                     this%num_samples(ind1) = this%num_samples(ind1) + 1
                   end if
                else
                   this%data(ind1, ind2) = this%data(ind1, ind2) + fld_val
-                  this%num_samples(ind1) = this%num_samples(ind1) + 1
                end if
             end do
          end do
@@ -855,6 +873,24 @@ CONTAINS
       end if
 
    end subroutine buff_2d_value
+
+   !#######################################################################
+
+   subroutine get_var_buffer_1d(this, var_buff)
+      class(hist_buff_1d_t), intent(inout) :: this
+      real(REAL64), intent(inout) :: var_buff(:)
+
+      var_buff = this%var_buffer
+   end subroutine get_var_buffer_1d
+
+   !#######################################################################
+
+   subroutine get_var_buffer_2d(this, var_buff)
+      class(hist_buff_2d_t), intent(inout) :: this
+      real(REAL64), intent(inout) :: var_buff(:,:)
+
+      var_buff = this%var_buffer
+   end subroutine get_var_buffer_2d
 
    !#######################################################################
 
