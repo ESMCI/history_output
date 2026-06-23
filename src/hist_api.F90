@@ -1,5 +1,4 @@
 module hist_api
-   use cam_logfile, only: iulog
 
    implicit none
    private
@@ -522,8 +521,6 @@ CONTAINS
          class is (hist_buff_1d_t)
             buff => buff_ptr
             call buff%get_var_buffer(var_buffer)
-            write(iulog,*) 'peverwhee - var buffer in api'
-            write(iulog,*) var_buffer
          class default
             call hist_add_error(subname, 'invalid buffer type', errors=logger)
          end select
