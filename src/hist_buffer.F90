@@ -191,12 +191,23 @@ CONTAINS
 
    !#######################################################################
 
-   function get_num_samples(this) result(samples)
+   function get_num_samples(this, logger) result(samples)
+      use hist_msg_handler, only: hist_log_messages, hist_add_error
       ! Dummy arguments
-      class(hist_buffer_t), intent(inout) :: this
-      integer, allocatable                :: samples(:)
+      class(hist_buffer_t),                 intent(in) :: this
+      integer, allocatable                             :: samples(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
 
-      allocate(samples(size(this%num_samples)))
+      ! Local variables
+      integer :: ierr
+      character(len=512) :: errmsg
+      character(len=*), parameter :: subname = 'get_num_samples'
+
+      allocate(samples(size(this%num_samples)), stat=ierr, errmsg=errmsg)
+      if (ierr /= 0) then
+         call hist_add_error(subname, 'failed to allocate num_samples ', &
+                 errors=logger)
+      end if
 
       samples = this%num_samples
 
@@ -875,7 +886,7 @@ CONTAINS
 
    subroutine get_var_buffer_1d(this, var_buff)
       class(hist_buff_1d_t), intent(inout) :: this
-      real(REAL64), intent(inout) :: var_buff(:)
+      real(REAL64), intent(out) :: var_buff(:)
 
       var_buff = this%var_buffer
    end subroutine get_var_buffer_1d
@@ -884,7 +895,7 @@ CONTAINS
 
    subroutine get_var_buffer_2d(this, var_buff)
       class(hist_buff_2d_t), intent(inout) :: this
-      real(REAL64), intent(inout) :: var_buff(:,:)
+      real(REAL64), intent(out) :: var_buff(:,:)
 
       var_buff = this%var_buffer
    end subroutine get_var_buffer_2d

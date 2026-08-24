@@ -356,8 +356,8 @@ CONTAINS
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t),          intent(inout) :: field
-      real(REAL64),                      intent(inout) :: norm_val(:)
+      class(hist_field_info_t),             intent(in) :: field
+      real(REAL64),                        intent(out) :: norm_val(:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer  :: buff_ptr
@@ -399,8 +399,8 @@ CONTAINS
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t),          intent(inout) :: field
-      real(REAL64),                      intent(inout) :: norm_val(:,:)
+      class(hist_field_info_t),          intent(in)    :: field
+      real(REAL64),                      intent(out)   :: norm_val(:,:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer  :: buff_ptr
@@ -436,14 +436,14 @@ CONTAINS
 
    subroutine hist_field_value_1d(field, val, logger)
       use hist_buffer,      only: hist_buffer_t, hist_buff_1d_t
-      use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
       use hist_field,       only: hist_field_info_t
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t),          intent(inout) :: field
-      real(REAL64),                      intent(inout) :: val(:)
+      class(hist_field_info_t),             intent(in) :: field
+      real(REAL64),                        intent(out) :: val(:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer  :: buff_ptr
@@ -468,14 +468,14 @@ CONTAINS
 
    subroutine hist_field_value_2d(field, val, logger)
       use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
-      use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
-      use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
       use hist_field,       only: hist_field_info_t
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t),          intent(inout) :: field
-      real(REAL64),                      intent(inout) :: val(:,:)
+      class(hist_field_info_t),             intent(in) :: field
+      real(REAL64),                        intent(out) :: val(:,:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer  :: buff_ptr
@@ -506,8 +506,8 @@ CONTAINS
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t), intent(inout) :: field
-      real(REAL64),             intent(inout) :: var_buffer(:)
+      class(hist_field_info_t),             intent(in) :: field
+      real(REAL64),                        intent(out) :: var_buffer(:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t),  pointer :: buff_ptr
@@ -538,8 +538,8 @@ CONTAINS
       use ISO_FORTRAN_ENV,  only: REAL64
 
       ! Dummy arguments
-      class(hist_field_info_t), intent(inout) :: field
-      real(REAL64),             intent(inout) :: var_buffer(:,:)
+      class(hist_field_info_t),             intent(in) :: field
+      real(REAL64),                        intent(out) :: var_buffer(:,:)
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t),  pointer :: buff_ptr
@@ -562,19 +562,21 @@ CONTAINS
 
    !#######################################################################
 
-   subroutine hist_field_samples(field, samples)
+   subroutine hist_field_samples(field, samples, logger)
       use hist_buffer,      only: hist_buffer_t
       use hist_field,       only: hist_field_info_t
+      use hist_msg_handler, only: hist_log_messages
 
       ! Dummy arguments
-      class(hist_field_info_t),          intent(inout) :: field
-      integer,      allocatable,         intent(inout) :: samples(:)
+      class(hist_field_info_t),             intent(in) :: field
+      integer,                allocatable, intent(out) :: samples(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       class(hist_buffer_t), pointer  :: buff_ptr
 
       buff_ptr => field%buffers
       if (associated(buff_ptr)) then
-         samples =  buff_ptr%get_num_samples()
+         samples =  buff_ptr%get_num_samples(logger)
       end if
 
    end subroutine hist_field_samples
