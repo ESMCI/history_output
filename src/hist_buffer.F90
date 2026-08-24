@@ -205,7 +205,7 @@ CONTAINS
 
       allocate(samples(size(this%num_samples)), stat=ierr, errmsg=errmsg)
       if (ierr /= 0) then
-         call hist_add_error(subname, 'failed to allocate num_samples ', &
+         call hist_add_error(subname, 'failed to allocate num_samples; errmsg='//trim(errmsg), &
                  errors=logger)
       end if
 
