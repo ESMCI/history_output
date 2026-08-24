@@ -885,7 +885,7 @@ CONTAINS
    !#######################################################################
 
    subroutine get_var_buffer_1d(this, var_buff)
-      class(hist_buff_1d_t), intent(inout) :: this
+      class(hist_buff_1d_t), intent(in) :: this
       real(REAL64), intent(out) :: var_buff(:)
 
       var_buff = this%var_buffer
@@ -894,7 +894,7 @@ CONTAINS
    !#######################################################################
 
    subroutine get_var_buffer_2d(this, var_buff)
-      class(hist_buff_2d_t), intent(inout) :: this
+      class(hist_buff_2d_t), intent(in) :: this
       real(REAL64), intent(out) :: var_buff(:,:)
 
       var_buff = this%var_buffer
