@@ -176,9 +176,9 @@ CONTAINS
    subroutine hash_table_initialize_table(this, tbl_size, key_off)
       ! Initialize this table.
       ! Dummy arguments
-      class(hist_hash_table_t)      :: this
-      integer,           intent(in) :: tbl_size   ! new table size
-      integer, optional, intent(in) :: key_off    ! key offset
+      class(hist_hash_table_t), intent(inout) :: this
+      integer,                  intent(in)    :: tbl_size   ! new table size
+      integer, optional,        intent(in)    :: key_off    ! key offset
 
       ! Clear this table so it can be initialized
       if (allocated(this%primary_table)) then
@@ -198,7 +198,7 @@ CONTAINS
    subroutine hash_table_deallocate_table(this)
       ! Deallocate the hash table (if present)
       ! Dummy argument
-      class(hist_hash_table_t)     :: this
+      class(hist_hash_table_t), intent(inout) :: this
 
       ! Local variable
       integer :: entry_index
@@ -228,7 +228,7 @@ CONTAINS
       !
       !  Arguments:
       !
-      class(hist_hash_table_t)                :: this
+      class(hist_hash_table_t),   intent(in)  :: this
       character(len=*),           intent(in)  :: string
       character(len=*), optional, intent(out) :: errmsg
       character(len=*), parameter             :: subname = 'HASH_TABLE_KEY_HASH'
@@ -257,6 +257,10 @@ CONTAINS
             write(errmsg, '(2a,2(i0,a))') subname, ' ERROR: Key Hash, ',      &
                  hash_key, ' out of bounds, [1, ', this%table_size, ']'
          else
+            ! This else-block is only used for unit testing.  Eventually
+            ! the unit tests should be updated to use 'errmsg', and this
+            ! code block should be removed (along with making 'errmsg'
+            ! required.
             write(6, '(2a,2(i0,a))') subname, ' ERROR: Key Hash, ',           &
                  hash_key, ' out of bounds, [1, ', this%table_size, ']'
             STOP 1
@@ -279,7 +283,7 @@ CONTAINS
       !
       !  Arguments:
       !
-      class(hist_hash_table_t)                      :: this
+      class(hist_hash_table_t),         intent(in)  :: this
       character(len=*),                 intent(in)  :: key
       character(len=*),       optional, intent(out) :: errmsg
       class(hist_hashable_t), pointer               :: tbl_val
@@ -340,9 +344,9 @@ CONTAINS
       !-----------------------------------------------------------------------
 
       !  Dummy arguments:
-      class(hist_hash_table_t)                      :: this
-      class(hist_hashable_t), target                :: newval
-      character(len=*),       optional, intent(out) :: errmsg
+      class(hist_hash_table_t)        , intent(inout) :: this
+      class(hist_hashable_t), target  , intent(in)    :: newval
+      character(len=*),       optional, intent(out)   :: errmsg
       ! Local variables
       integer                          :: hash_ind
       integer                          :: ovflw_len

@@ -93,7 +93,7 @@ module hist_buffer
          import                   :: hist_buffer_t
          import                   :: hist_hashable_t
          class(hist_buffer_t),              intent(inout) :: this
-         class(hist_hashable_t),  pointer                 :: field_in
+         class(hist_hashable_t),  pointer,  intent(in)    :: field_in
          integer,                           intent(in)    :: volume_in
          integer,                           intent(in)    :: horiz_axis_in
          integer,                           intent(in)    :: accum_type_in
@@ -196,7 +196,7 @@ CONTAINS
 
       ! Dummy arguments
       class(hist_buffer_t),              intent(inout) :: this
-      class(hist_hashable_t),  pointer                 :: field_in
+      class(hist_hashable_t),  pointer,  intent(in)    :: field_in
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
@@ -302,7 +302,7 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages
 
       class(hist_buff_1d_t),             intent(inout) :: this
-      class(hist_hashable_t),  pointer                 :: field_in
+      class(hist_hashable_t),  pointer,  intent(in)    :: field_in
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in
@@ -572,7 +572,7 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages
 
       class(hist_buff_2d_t),             intent(inout) :: this
-      class(hist_hashable_t),  pointer                 :: field_in
+      class(hist_hashable_t),  pointer,  intent(in)    :: field_in
       integer,                           intent(in)    :: volume_in
       integer,                           intent(in)    :: horiz_axis_in
       integer,                           intent(in)    :: accum_type_in

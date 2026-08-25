@@ -40,8 +40,8 @@ CONTAINS
    !#######################################################################
 
    subroutine new_hashable_char(name_in, new_obj)
-      character(len=*), intent(in)        :: name_in
-      type(hist_hashable_char_t), pointer :: new_obj
+      character(len=*), intent(in)                       :: name_in
+      type(hist_hashable_char_t), pointer, intent(inout) :: new_obj
 
       if (associated(new_obj)) then
          deallocate(new_obj)
@@ -63,8 +63,8 @@ CONTAINS
    !#######################################################################
 
    subroutine new_hashable_int(val_in, new_obj)
-      integer, intent(in)                :: val_in
-      type(hist_hashable_int_t), pointer :: new_obj
+      integer,                            intent(in)    :: val_in
+      type(hist_hashable_int_t), pointer, intent(inout) :: new_obj
 
       if (associated(new_obj)) then
          deallocate(new_obj)

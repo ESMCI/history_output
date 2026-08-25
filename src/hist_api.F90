@@ -91,7 +91,7 @@ CONTAINS
       use hist_field,       only: hist_field_info_t
 
       ! Dummy arguments
-      class(hist_field_info_t), pointer                 :: field
+      class(hist_field_info_t), pointer,  intent(inout) :: field
       integer,                            intent(in)    :: buff_shape(:)
       integer,                            intent(in)    :: horiz_axis_ind
       character(len=*),                   intent(in)    :: accum_type

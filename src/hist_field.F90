@@ -31,7 +31,7 @@ module hist_field
       real(REAL64),                  private :: fillvalue
       integer,          allocatable, private :: field_beg_dims(:)
       integer,          allocatable, private :: field_end_dims(:)
-      
+
 ! type kind rank?
       ! dimensions?
       type(hist_field_info_t), pointer :: next => NULL()
@@ -80,27 +80,27 @@ CONTAINS
         field_shape, fill_value, sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, &
         mdim_sizes, beg_dims, end_dims, cell_methods, errmsg)
 
-      type(hist_field_info_t), pointer               :: field
-      character(len=*),                  intent(in)  :: diag_name_in
-      character(len=*),                  intent(in)  :: std_name_in
-      character(len=*),                  intent(in)  :: long_name_in
-      character(len=*),                  intent(in)  :: units_in
-      character(len=*),                  intent(in)  :: type_in
-      integer,                           intent(in)  :: decomp_in
-      integer,                           intent(in)  :: mdim_indices(:)
-      character(len=*),                  intent(in)  :: acc_type
-      integer,                           intent(in)  :: num_levels
-      integer,                           intent(in)  :: field_shape(:)
-      real(REAL64),                      intent(in)  :: fill_value
-      character(len=*),        optional, intent(in)  :: sampling_seq
-      logical,                 optional, intent(in)  :: flag_xyfill
-      character(len=*),        optional, intent(in)  :: mixing_ratio
-      integer,                 optional, intent(in)  :: dim_bounds(:,:)
-      integer,                 optional, intent(in)  :: mdim_sizes(:)
-      integer,                 optional, intent(in)  :: beg_dims(:)
-      integer,                 optional, intent(in)  :: end_dims(:)
-      character(len=*),        optional, intent(in)  :: cell_methods
-      character(len=*),        optional, intent(out) :: errmsg
+      type(hist_field_info_t), pointer,  intent(inout) :: field
+      character(len=*),                  intent(in)    :: diag_name_in
+      character(len=*),                  intent(in)    :: std_name_in
+      character(len=*),                  intent(in)    :: long_name_in
+      character(len=*),                  intent(in)    :: units_in
+      character(len=*),                  intent(in)    :: type_in
+      integer,                           intent(in)    :: decomp_in
+      integer,                           intent(in)    :: mdim_indices(:)
+      character(len=*),                  intent(in)    :: acc_type
+      integer,                           intent(in)    :: num_levels
+      integer,                           intent(in)    :: field_shape(:)
+      real(REAL64),                      intent(in)    :: fill_value
+      character(len=*),        optional, intent(in)    :: sampling_seq
+      logical,                 optional, intent(in)    :: flag_xyfill
+      character(len=*),        optional, intent(in)    :: mixing_ratio
+      integer,                 optional, intent(in)    :: dim_bounds(:,:)
+      integer,                 optional, intent(in)    :: mdim_sizes(:)
+      integer,                 optional, intent(in)    :: beg_dims(:)
+      integer,                 optional, intent(in)    :: end_dims(:)
+      character(len=*),        optional, intent(in)    :: cell_methods
+      character(len=*),        optional, intent(out)   :: errmsg
 
       if (present(errmsg)) then
          errmsg = ''
@@ -165,8 +165,8 @@ CONTAINS
 
    subroutine hist_get_field(buffer, field)
       ! Retrieve
-      class(hist_buffer_t), intent(in) :: buffer
-      type(hist_field_info_t), pointer :: field
+      class(hist_buffer_t),             intent(in)    :: buffer
+      type(hist_field_info_t), pointer, intent(inout) :: field
 
       nullify(field)
       select type(finfo => buffer%field_info)
@@ -382,8 +382,8 @@ CONTAINS
    subroutine clear_buffers(this, logger)
       use hist_msg_handler,    only: hist_log_messages
       ! Dummy Argument
-      class(hist_field_info_t) :: this
-      type(hist_log_messages), optional :: logger
+      class(hist_field_info_t),          intent(inout) :: this
+      type(hist_log_messages), optional, intent(inout) :: logger
       ! Local Variables
       class(hist_buffer_t), pointer :: next_buf
 
@@ -403,7 +403,7 @@ CONTAINS
 
    subroutine finalize_field(this)
       ! Dummy Argument
-      type(hist_field_info_t) :: this
+      type(hist_field_info_t), intent(inout) :: this
       ! Local Variables
       class(hist_buffer_t), pointer :: next_buf
 

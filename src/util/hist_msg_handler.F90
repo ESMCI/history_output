@@ -130,7 +130,7 @@ CONTAINS
 
    subroutine finalize_log_entry(this)
       ! Dummy Argument
-      type(hist_log_entry) :: this
+      type(hist_log_entry), intent(inout) :: this
       ! Local argument
       type(hist_log_entry), pointer :: next
 
@@ -149,7 +149,7 @@ CONTAINS
 
    integer function hist_msgs_num_messages(this)
       ! Dummy Argument
-      class(hist_log_messages) :: this
+      class(hist_log_messages), intent(in) :: this
 
       hist_msgs_num_messages = this%length
    end function hist_msgs_num_messages
@@ -158,7 +158,7 @@ CONTAINS
 
    integer function hist_msgs_num_errors(this)
       ! Dummy Argument
-      class(hist_log_messages) :: this
+      class(hist_log_messages), intent(in) :: this
 
       hist_msgs_num_errors = this%error_count
    end function hist_msgs_num_errors
@@ -168,13 +168,13 @@ CONTAINS
    subroutine hist_msgs_new_error(this, errstr1,                              &
         errint1, errstr2, errint2, errstr3, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      character(len=*),           intent(in) :: errstr1
-      integer,          optional, intent(in) :: errint1
-      character(len=*), optional, intent(in) :: errstr2
-      integer,          optional, intent(in) :: errint2
-      character(len=*), optional, intent(in) :: errstr3
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      character(len=*),           intent(in)    :: errstr1
+      integer,          optional, intent(in)    :: errint1
+      character(len=*), optional, intent(in)    :: errstr2
+      integer,          optional, intent(in)    :: errint2
+      character(len=*), optional, intent(in)    :: errstr3
+      character(len=*), optional, intent(in)    :: subname
 
       call this%new_message(ERROR, errstr1, msgint1=errint1, msgstr2=errstr2, &
            msgint2=errint2, msgstr3=errstr3, subname=subname)
@@ -187,14 +187,14 @@ CONTAINS
    subroutine hist_msgs_new_message(this, msg_level, msgstr1,                 &
         msgint1, msgstr2, msgint2, msgstr3, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      integer,                    intent(in) :: msg_level
-      character(len=*),           intent(in) :: msgstr1
-      integer,          optional, intent(in) :: msgint1
-      character(len=*), optional, intent(in) :: msgstr2
-      integer,          optional, intent(in) :: msgint2
-      character(len=*), optional, intent(in) :: msgstr3
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      integer,                    intent(in)    :: msg_level
+      character(len=*),           intent(in)    :: msgstr1
+      integer,          optional, intent(in)    :: msgint1
+      character(len=*), optional, intent(in)    :: msgstr2
+      integer,          optional, intent(in)    :: msgint2
+      character(len=*), optional, intent(in)    :: msgstr3
+      character(len=*), optional, intent(in)    :: subname
 
       ! Local variables
       integer,              parameter   :: num_strs = 3
@@ -297,11 +297,11 @@ CONTAINS
 
    subroutine hist_add_stack_frame(this, msg_level, filename, line, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      integer,                    intent(in) :: msg_level
-      character(len=*),           intent(in) :: filename
-      integer,                    intent(in) :: line
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      integer,                    intent(in)    :: msg_level
+      character(len=*),           intent(in)    :: filename
+      integer,                    intent(in)    :: line
+      character(len=*), optional, intent(in)    :: subname
 
       if (present(subname)) then
          call this%new_message(msg_level,                                     &
@@ -319,11 +319,11 @@ CONTAINS
    subroutine hist_msgs_new_alloc_error(this, fieldname, filename, line,      &
         subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      character(len=*),           intent(in) :: fieldname
-      character(len=*),           intent(in) :: filename
-      integer,                    intent(in) :: line
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      character(len=*),           intent(in)    :: fieldname
+      character(len=*),           intent(in)    :: filename
+      integer,                    intent(in)    :: line
+      character(len=*), optional, intent(in)    :: subname
 
       if (present(subname)) then
          call this%new_message(ERROR,                                         &
@@ -341,7 +341,7 @@ CONTAINS
 
    subroutine hist_msgs_print_log(this, unit, header)
       ! Dummy Arguments
-      class(hist_log_messages)                   :: this
+      class(hist_log_messages),       intent(in) :: this
       integer,                        intent(in) :: unit
       character(len=*),     optional, intent(in) :: header
 
@@ -368,7 +368,7 @@ CONTAINS
 
    subroutine finalize_hist_log_messages(this)
       ! Dummy Argument
-      type(hist_log_messages) :: this
+      type(hist_log_messages), intent(inout) :: this
 
       if (associated(this%log_messages)) then
          deallocate(this%log_messages)
