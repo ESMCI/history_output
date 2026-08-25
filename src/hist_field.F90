@@ -1,5 +1,5 @@
 module hist_field
-   use ISO_FORTRAN_ENV, only: REAL64
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
    ! Module containing DDTs for history fields and associated routines
 
    use hist_hashable, only: hist_hashable_t
@@ -34,8 +34,8 @@ module hist_field
 
 ! type kind rank?
       ! dimensions?
-      type(hist_field_info_t), pointer :: next => NULL()
-      class(hist_buffer_t),    pointer :: buffers => NULL()
+      type(hist_field_info_t), pointer :: next => null()
+      class(hist_buffer_t),    pointer :: buffers => null()
    contains
       procedure :: key             => hist_field_info_get_key
       procedure :: diag_name       => get_diag_name
@@ -61,16 +61,16 @@ module hist_field
       final     :: finalize_field
    end type hist_field_info_t
 
-CONTAINS
+contains
 
    !#######################################################################
 
-   function hist_field_info_get_key(hashable)
+   function hist_field_info_get_key(hashable) result(key)
       ! Return the hashable field info class key (diag_file_name)
       class(hist_field_info_t), intent(in) :: hashable
-      character(len=:), allocatable        :: hist_field_info_get_key
+      character(len=:), allocatable        :: key
 
-      hist_field_info_get_key = hashable%diag_file_name
+      key = hashable%diag_file_name
    end function hist_field_info_get_key
 
    !#######################################################################
@@ -100,6 +100,10 @@ CONTAINS
       integer,                 optional, intent(in)    :: beg_dims(:)
       integer,                 optional, intent(in)    :: end_dims(:)
       character(len=*),        optional, intent(in)    :: cell_methods
+      ! Reason: The assumed-length error string is part of the established
+      !         CAM-SIMA error-handling interface, so it cannot be made
+      !         `allocatable` without breaking every caller.
+      ! allow(assumed-size-character-intent)
       character(len=*),        optional, intent(out)   :: errmsg
 
       if (present(errmsg)) then
@@ -350,7 +354,7 @@ CONTAINS
       integer, intent(in) :: dimbounds(:,:)
       integer, intent(in) :: mdim_sizes(:)
 
-      integer ::idx
+      integer :: idx
 
       allocate(this%field_beg_dims(3))
       allocate(this%field_end_dims(3))
@@ -397,7 +401,7 @@ CONTAINS
          end if
       end do
 
-   end subroutine
+   end subroutine clear_buffers
 
    !#######################################################################
 

@@ -1,6 +1,6 @@
 module hist_buffer
-   use ISO_FORTRAN_ENV, only: REAL64
-   use hist_hashable,   only: hist_hashable_t
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use hist_hashable,                only: hist_hashable_t
 
    implicit none
    private
@@ -15,20 +15,25 @@ module hist_buffer
    integer, parameter, public :: hist_accum_avg = 4 ! sample average
    integer, parameter, public :: hist_accum_var = 5 ! sample standard deviation
 
+   ! Number of accumulation types defined above
+   integer, parameter, public :: hist_num_accum_types = 5
+
    integer, parameter         :: as_len = 36
-   character(len=as_len), parameter, public :: accum_strings(5) = (/          &
+   character(len=as_len), parameter, public ::                                &
+        accum_strings(hist_num_accum_types) = [                               &
         'last sampled value                  ',                               &
         'minimum of sampled values           ',                               &
         'maximum of sampled values           ',                               &
         'average of sampled values           ',                               &
-        'standard deviation of sampled values' /)
+        'standard deviation of sampled values']
 
-   character(len=3), parameter, public :: accum_abbrev(5) =                   &
-        (/ 'lst', 'min', 'max', 'avg', 'var' /)
+   character(len=3), parameter, public ::                                     &
+        accum_abbrev(hist_num_accum_types) =                                  &
+        ['lst', 'min', 'max', 'avg', 'var']
 
    type, abstract, public :: hist_buffer_t
       ! hist_buffer_t is an abstract base class for hist_outfld buffers
-      class(hist_hashable_t), pointer              :: field_info => NULL()
+      class(hist_hashable_t), pointer              :: field_info => null()
       integer,                             private :: vol = -1 ! For host output
       integer,                             private :: horiz_axis_ind = 0
       integer,                             private :: rank = 0
@@ -37,7 +42,7 @@ module hist_buffer
       integer,                allocatable, private :: block_begs(:)
       integer,                allocatable, private :: block_ends(:)
       character(len=:),       allocatable, private :: buff_type
-      class(hist_buffer_t),   pointer              :: next => NULL()
+      class(hist_buffer_t),   pointer              :: next => null()
    contains
       procedure                              :: field  => get_field_info
       procedure                              :: volume => get_volume
@@ -56,7 +61,7 @@ module hist_buffer
       real(REAL64), allocatable :: data(:)
       real(REAL64), allocatable :: var_buffer(:)
       integer,  allocatable,   private :: num_samples(:)
-   CONTAINS
+   contains
       procedure :: clear => buff_1d_clear
       procedure :: accumulate => buff_1d_accum
       procedure :: norm_value => buff_1d_value
@@ -67,7 +72,7 @@ module hist_buffer
       real(REAL64), allocatable :: data(:,:)
       real(REAL64), allocatable :: var_buffer(:,:)
       integer, allocatable,    private :: num_samples(:)
-   CONTAINS
+   contains
       procedure :: clear => buff_2d_clear
       procedure :: accumulate => buff_2d_accum
       procedure :: norm_value => buff_2d_value
@@ -80,6 +85,7 @@ module hist_buffer
       subroutine hist_buff_sub_log(this, logger)
          use hist_msg_handler, only: hist_log_messages
          import                   :: hist_buffer_t
+         implicit none
          class(hist_buffer_t),              intent(inout) :: this
          type(hist_log_messages), optional, intent(inout) :: logger
       end subroutine hist_buff_sub_log
@@ -88,10 +94,11 @@ module hist_buffer
    abstract interface
       subroutine hist_buff_init(this, field_in, volume_in, horiz_axis_in,     &
            accum_type_in, shape_in, block_sizes_in, block_ind_in, logger)
-         use hist_msg_handler, only: hist_log_messages
-         use ISO_FORTRAN_ENV, only: REAL64
+         use hist_msg_handler,             only: hist_log_messages
+         use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
          import                   :: hist_buffer_t
          import                   :: hist_hashable_t
+         implicit none
          class(hist_buffer_t),              intent(inout) :: this
          class(hist_hashable_t),  pointer,  intent(in)    :: field_in
          integer,                           intent(in)    :: volume_in
@@ -108,28 +115,30 @@ module hist_buffer
       subroutine hist_buff_clear(this, logger)
          use hist_msg_handler, only: hist_log_messages
          import                  :: hist_buffer_t
+         implicit none
          class(hist_buffer_t),              intent(inout) :: this
          type(hist_log_messages), optional, intent(inout) :: logger
       end subroutine hist_buff_clear
    end interface
 
-CONTAINS
+contains
 
    !#######################################################################
 
-   function get_field_info(this)
+   function get_field_info(this) result(field_info)
       class(hist_buffer_t), intent(in) :: this
-      class(hist_hashable_t), pointer  :: get_field_info
+      class(hist_hashable_t), pointer  :: field_info
 
-      get_field_info => this%field_info
+      field_info => this%field_info
    end function get_field_info
 
    !#######################################################################
 
-   integer function get_volume(this)
+   function get_volume(this) result(volume)
       class(hist_buffer_t), intent(in) :: this
+      integer                          :: volume
 
-      get_volume = this%vol
+      volume = this%vol
    end function get_volume
 
    !#######################################################################
@@ -145,14 +154,15 @@ CONTAINS
 
    !#######################################################################
 
-   integer function horiz_axis_index(this)
+   function horiz_axis_index(this) result(axis_index)
       class(hist_buffer_t), intent(in) :: this
+      integer                          :: axis_index
 
-      horiz_axis_index = this%horiz_axis_ind
+      axis_index = this%horiz_axis_ind
    end function horiz_axis_index
    !#######################################################################
 
-   logical function check_status(this, logger, filename, line)
+   function check_status(this, logger, filename, line) result(is_valid)
       ! Check to see if this buffer is properly initialized
       use hist_msg_handler, only: hist_log_messages, hist_add_error, ERROR
 
@@ -161,13 +171,14 @@ CONTAINS
       type(hist_log_messages), optional, intent(inout) :: logger
       character(len=*),        optional, intent(in)    :: filename
       integer,                 optional, intent(in)    :: line
+      logical                                          :: is_valid
       ! Local variable
       character(len=*), parameter :: subname = 'check_status'
 
-      check_status = .true.
-      if ( (this%horiz_axis_index() < 1)      .or.                            &
-           (.not. allocated(this%field_shape)) ) then
-         check_status = .false.
+      is_valid = .true.
+      if ((this%horiz_axis_index() < 1)      .or.                             &
+           (.not. allocated(this%field_shape))) then
+         is_valid = .false.
          call hist_add_error(subname,                                         &
               "buffer not properly initialized '", errors=logger)
          if (present(filename) .and. present(line) .and. present(logger)) then
@@ -179,11 +190,12 @@ CONTAINS
 
    !#######################################################################
 
-   logical function has_blocks(this)
+   function has_blocks(this) result(blocked)
       ! Dummy argument
       class(hist_buffer_t),   intent(inout) :: this
+      logical                               :: blocked
 
-      has_blocks = allocated(this%block_begs) .and. allocated(this%block_ends)
+      blocked = allocated(this%block_begs) .and. allocated(this%block_ends)
 
    end function has_blocks
 
@@ -450,7 +462,7 @@ CONTAINS
                   ! Only include the sample if it's not a fill value
                   if (this%num_samples(ind1) == 0) then
                      this%data(ind1) = fld_val
-                     this%var_buffer(ind1) = 0._REAL64
+                     this%var_buffer(ind1) = 0.0_REAL64
                      this%num_samples(ind1) = this%num_samples(ind1) + 1
                   else
                      tmp = this%data(ind1)
@@ -466,7 +478,7 @@ CONTAINS
             else
                if (this%num_samples(ind1) == 0) then
                   this%data(ind1) = fld_val
-                  this%var_buffer(ind1) = 0._REAL64
+                  this%var_buffer(ind1) = 0.0_REAL64
                   this%num_samples(ind1) = this%num_samples(ind1) + 1
                else
                   tmp = this%data(ind1)
@@ -746,7 +758,7 @@ CONTAINS
                      ! Only include the sample if it's not a fill value
                      if (this%num_samples(ind1) == 1) then
                         this%data(ind1, ind2) = fld_val
-                        this%var_buffer(ind1, ind2) = 0._REAL64
+                        this%var_buffer(ind1, ind2) = 0.0_REAL64
                      else
                         tmp = this%data(ind1, ind2)
                         this%data(ind1, ind2) = this%data(ind1, ind2) + &
@@ -760,7 +772,7 @@ CONTAINS
                else
                   if (this%num_samples(ind1) == 1) then
                      this%data(ind1, ind2) = fld_val
-                     this%var_buffer(ind1, ind2) = 0._REAL64
+                     this%var_buffer(ind1, ind2) = 0.0_REAL64
                   else
                      tmp = this%data(ind1, ind2)
                      this%data(ind1, ind2) = this%data(ind1, ind2) + &
@@ -795,20 +807,20 @@ CONTAINS
       logical :: error_found
 
       error_found = .false.
-      do jdx = 2, this%field_shape(2)
-         do idx = 1, this%field_shape(1)
+      lev_loop: do jdx = 2, this%field_shape(2)
+         col_loop: do idx = 1, this%field_shape(1)
             if (field(idx,1) == fill_value .and. field(idx,jdx) /= fill_value .or. &
                  field(idx,1) /= fill_value .and. field(idx,jdx) == fill_value) then
                write(errstr, '(a,i0)') 'ERROR: fill value applied inconsistently for column ', idx
                call hist_add_error('buff_2d_check_fill', errstr, errors=logger)
                error_found = .true.
-               exit
+               exit col_loop
             end if
-         end do
+         end do col_loop
          if (error_found) then
-            exit
+            exit lev_loop
          end if
-      end do
+      end do lev_loop
 
    end subroutine buff_2d_check_fill
 
@@ -885,8 +897,8 @@ CONTAINS
       character(len=512)            :: alloc_errmsg
       ! For buffer allocation
       integer                                    :: aerr
-      type(hist_buff_1d_t), pointer :: real_1 => NULL()
-      type(hist_buff_2d_t), pointer :: real_2 => NULL()
+      type(hist_buff_1d_t), pointer :: real_1 => null()
+      type(hist_buff_2d_t), pointer :: real_2 => null()
 
       nullify(newbuf)
       ! Create new buffer
@@ -897,7 +909,7 @@ CONTAINS
             newbuf => real_1
          else
             call hist_add_error(subname, &
-               "Failed to allocate real_1 buffer, errmsg = ", &
+               'Failed to allocate real_1 buffer, errmsg = ', &
                errstr2=trim(alloc_errmsg), errors=logger)
          end if
       case ('real_2')
@@ -906,7 +918,7 @@ CONTAINS
             newbuf => real_2
          else
             call hist_add_error(subname, &
-               "Failed to allocate real_2 buffer, errmsg = ", &
+               'Failed to allocate real_2 buffer, errmsg = ', &
                errstr2=trim(alloc_errmsg), errors=logger)
          end if
       case default
