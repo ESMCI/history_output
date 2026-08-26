@@ -61,7 +61,7 @@ contains
 
    !#######################################################################
 
-   function hist_have_error(errors) result(has_error)
+   pure function hist_have_error(errors) result(has_error)
       ! Return .true. iff <errors> is present and contains error messages
       type(hist_log_messages), optional, intent(inout) :: errors
       logical                                          :: has_error
@@ -148,7 +148,7 @@ contains
 
    !#######################################################################
 
-   function hist_msgs_num_messages(this) result(num_messages)
+   pure function hist_msgs_num_messages(this) result(num_messages)
       ! Dummy Argument
       class(hist_log_messages), intent(in) :: this
       integer                              :: num_messages
@@ -158,7 +158,7 @@ contains
 
    !#######################################################################
 
-   function hist_msgs_num_errors(this) result(num_errors)
+   pure function hist_msgs_num_errors(this) result(num_errors)
       ! Dummy Argument
       class(hist_log_messages), intent(in) :: this
       integer                              :: num_errors

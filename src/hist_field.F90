@@ -65,7 +65,7 @@ contains
 
    !#######################################################################
 
-   function hist_field_info_get_key(hashable) result(key)
+   pure function hist_field_info_get_key(hashable) result(key)
       ! Return the hashable field info class key (diag_file_name)
       class(hist_field_info_t), intent(in) :: hashable
       character(len=:), allocatable        :: key
@@ -100,9 +100,7 @@ contains
       integer,                 optional, intent(in)    :: beg_dims(:)
       integer,                 optional, intent(in)    :: end_dims(:)
       character(len=*),        optional, intent(in)    :: cell_methods
-      ! Reason: The assumed-length error string is part of the established
-      !         CAM-SIMA error-handling interface, so it cannot be made
-      !         `allocatable` without breaking every caller.
+      ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*),        optional, intent(out)   :: errmsg
 

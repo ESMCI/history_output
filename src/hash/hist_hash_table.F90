@@ -138,7 +138,7 @@ contains
 
    !#######################################################################
 
-   function have_error(errmsg) result(has_error)
+   pure function have_error(errmsg) result(has_error)
       ! Return .true. iff <errmsg> is present and contains text
       character(len=*), optional, intent(in) :: errmsg
       logical                                :: has_error
@@ -153,9 +153,8 @@ contains
 
    subroutine clear_optstring(str)
       ! clear <str> if it is present
-      ! Reason: The assumed-length optional string is part of the established
-      !         CAM-SIMA error-handling interface, so it cannot be made
-      !         `allocatable` without breaking every caller.
+      !
+      ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*), optional, intent(inout) :: str
 
@@ -236,9 +235,7 @@ contains
       !
       class(hist_hash_table_t),   intent(in)  :: this
       character(len=*),           intent(in)  :: string
-      ! Reason: The assumed-length error string is part of the established
-      !         CAM-SIMA error-handling interface, so it cannot be made
-      !         `allocatable` without breaking every caller.
+      ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*), optional, intent(out) :: errmsg
       character(len=*), parameter             :: subname = 'HASH_TABLE_KEY_HASH'
@@ -296,9 +293,7 @@ contains
       !
       class(hist_hash_table_t),         intent(in)  :: this
       character(len=*),                 intent(in)  :: key
-      ! Reason: The assumed-length error string is part of the established
-      !         CAM-SIMA error-handling interface, so it cannot be made
-      !         `allocatable` without breaking every caller.
+      ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*),       optional, intent(out) :: errmsg
       class(hist_hashable_t), pointer               :: tbl_val
@@ -361,9 +356,7 @@ contains
       !  Dummy arguments:
       class(hist_hash_table_t)        , intent(inout) :: this
       class(hist_hashable_t), target  , intent(in)    :: newval
-      ! Reason: The assumed-length error string is part of the established
-      !         CAM-SIMA error-handling interface, so it cannot be made
-      !         `allocatable` without breaking every caller.
+      ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*),       optional, intent(out)   :: errmsg
       ! Local variables

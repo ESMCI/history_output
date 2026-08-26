@@ -1,6 +1,6 @@
 module hist_buffer
    use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
-   use hist_hashable,                only: hist_hashable_t
+   use hist_hashable,                 only: hist_hashable_t
 
    implicit none
    private
@@ -134,7 +134,7 @@ contains
 
    !#######################################################################
 
-   function get_volume(this) result(volume)
+   pure function get_volume(this) result(volume)
       class(hist_buffer_t), intent(in) :: this
       integer                          :: volume
 
@@ -143,7 +143,7 @@ contains
 
    !#######################################################################
 
-   function get_shape(this) result(fshape)
+   pure function get_shape(this) result(fshape)
       class(hist_buffer_t), intent(in) :: this
       integer, allocatable :: fshape(:)
 
@@ -154,7 +154,7 @@ contains
 
    !#######################################################################
 
-   function horiz_axis_index(this) result(axis_index)
+   pure function horiz_axis_index(this) result(axis_index)
       class(hist_buffer_t), intent(in) :: this
       integer                          :: axis_index
 
@@ -190,9 +190,9 @@ contains
 
    !#######################################################################
 
-   function has_blocks(this) result(blocked)
+   pure function has_blocks(this) result(blocked)
       ! Dummy argument
-      class(hist_buffer_t),   intent(inout) :: this
+      class(hist_buffer_t),   intent(in)    :: this
       logical                               :: blocked
 
       blocked = allocated(this%block_begs) .and. allocated(this%block_ends)
