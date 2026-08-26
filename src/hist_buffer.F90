@@ -219,6 +219,7 @@ contains
       ! Local variables
       integer                     :: astat
       integer                     :: hsize
+      character(len=256)          :: errmsg
       character(len=*), parameter :: subname = 'init_buffer'
 
       ! Sanity check
@@ -232,11 +233,11 @@ contains
          this%vol = volume_in
          this%horiz_axis_ind = horiz_axis_in
          this%accum_type = accum_type_in
-         allocate(this%field_shape(size(shape_in, 1)), stat=astat)
+         allocate(this%field_shape(size(shape_in, 1)), stat=astat, errmsg=errmsg)
          if (astat == 0) then
             this%field_shape(:) = shape_in(:)
          else
-            call hist_add_alloc_error('field_shape', __FILE__, __LINE__ - 4,  &
+            call hist_add_alloc_error('field_shape, error: '//errmsg, __FILE__, __LINE__ - 4,  &
                  subname=subname, errors=logger)
          end if
       end if
@@ -276,26 +277,27 @@ contains
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       integer                     :: aerr
+      character(len=256)          :: errmsg
       character(len=*), parameter :: subname = 'buff_1d_clear'
 
       if (.not. allocated(this%data)) then
-         allocate(this%data(this%field_shape(1)), stat=aerr)
+         allocate(this%data(this%field_shape(1)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('data', __FILE__, __LINE__ - 1,         &
+            call hist_add_alloc_error('data, error: '//errmsg, __FILE__, __LINE__ - 1,  &
                  subname=subname, errors=logger)
          end if
       end if
       if (.not. allocated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
-         allocate(this%var_buffer(this%field_shape(1)), stat=aerr)
+         allocate(this%var_buffer(this%field_shape(1)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+            call hist_add_alloc_error('var_buffer, error: '//errmsg, __FILE__, __LINE__ - 2, &
                  subname=subname, errors=logger)
          end if
       end if
       if (.not. allocated(this%num_samples)) then
-         allocate(this%num_samples(this%field_shape(1)), stat=aerr)
+         allocate(this%num_samples(this%field_shape(1)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('num_samples', __FILE__, __LINE__ - 1,         &
+            call hist_add_alloc_error('num_samples, error: '//errmsg, __FILE__, __LINE__ - 1, &
                  subname=subname, errors=logger)
          end if
       end if
@@ -334,7 +336,7 @@ contains
 
    subroutine buff_1d_accum(this, field, cols_or_block, flag_xyfill, &
          fill_value, cole, logger)
-      use hist_msg_handler, only: hist_log_messages
+      use hist_msg_handler, only: hist_log_messages, hist_add_error
       ! Dummy arguments
       class(hist_buff_1d_t),       intent(inout) :: this
       real(REAL64),                      intent(in)    :: field(:)
@@ -344,10 +346,12 @@ contains
       integer,                 optional, intent(in)    :: cole
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
-      integer      :: col_beg_use
-      integer      :: col_end_use
-      integer      :: ind1
-      real(REAL64) :: fld_val, tmp
+      integer            :: col_beg_use
+      integer            :: col_end_use
+      integer            :: ind1
+      real(REAL64)       :: fld_val, tmp
+      character(len=256) :: errmsg
+      character(len=*), parameter :: subname = 'buff_1d_accum'
 
       if (this%has_blocks()) then
          col_end_use = this%block_ends(cols_or_block)
@@ -361,7 +365,6 @@ contains
                  this%field_shape(this%horiz_axis_ind) - 1
          end if
       end if
-
 
       select case (this%accum_type)
       case (hist_accum_lst)
@@ -492,6 +495,10 @@ contains
                end if
             end if
          end do
+      case default
+         ! This shouldn't trigger, so raise an error:
+         write(errmsg, *) 'un-recognized accumulation type: ', this%accum_type
+         call hist_add_error(subname, errmsg, errors=logger)
       end select
 
    end subroutine buff_1d_accum
@@ -546,26 +553,27 @@ contains
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       integer                     :: aerr
+      character(len=*)            :: errmsg
       character(len=*), parameter :: subname = 'buff_2d_clear'
 
       if (.not. allocated(this%data)) then
-         allocate(this%data(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         allocate(this%data(this%field_shape(1), this%field_shape(2)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('data', __FILE__, __LINE__ - 1,         &
+            call hist_add_alloc_error('data, error: '//errmsg, __FILE__, __LINE__ - 1, &
                  subname=subname, errors=logger)
          end if
       end if
       if (.not. allocated(this%var_buffer) .and. this%accum_type == hist_accum_var) then
-         allocate(this%var_buffer(this%field_shape(1), this%field_shape(2)), stat=aerr)
+         allocate(this%var_buffer(this%field_shape(1), this%field_shape(2)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('var_buffer', __FILE__, __LINE__ - 2,         &
+            call hist_add_alloc_error('var_buffer, error: '//errmsg, __FILE__, __LINE__ - 2,  &
                  subname=subname, errors=logger)
          end if
       end if
       if (.not. allocated(this%num_samples)) then
-         allocate(this%num_samples(this%field_shape(1)), stat=aerr)
+         allocate(this%num_samples(this%field_shape(1)), stat=aerr, errmsg=errmsg)
          if (aerr /= 0) then
-            call hist_add_alloc_error('num_samples', __FILE__, __LINE__ - 1,         &
+            call hist_add_alloc_error('num_samples, error: '//errmsg, __FILE__, __LINE__ - 1, &
                  subname=subname, errors=logger)
          end if
       end if
@@ -604,7 +612,7 @@ contains
 
    subroutine buff_2d_accum(this, field, cols_or_block, flag_xyfill, &
          fill_value, cole, logger)
-      use hist_msg_handler, only: hist_log_messages
+      use hist_msg_handler, only: hist_log_messages, hist_add_error
       ! Dummy arguments
       class(hist_buff_2d_t),       intent(inout) :: this
       real(REAL64),                      intent(in)    :: field(:,:)
@@ -614,10 +622,12 @@ contains
       integer,                 optional, intent(in)    :: cole
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
-      integer      :: col_beg_use
-      integer      :: col_end_use
-      integer      :: ind1, ind2
-      real(REAL64) :: fld_val, tmp
+      integer            :: col_beg_use
+      integer            :: col_end_use
+      integer            :: ind1, ind2
+      real(REAL64)       :: fld_val, tmp
+      character(len=256) :: errmsg
+      character(len=*), parameter :: subname = 'buff_2d_accum'
 
       if (this%has_blocks()) then
          ! For a blocked field, <cols_or_block> is a block index
@@ -788,6 +798,10 @@ contains
          if (flag_xyfill) then
             call this%check_fill_value(field(col_beg_use:col_end_use, :), fill_value, logger)
          end if
+      case default
+         ! This shouldn't trigger, so raise an error:
+         write(errmsg, *) 'un-recognized accumulation type: ', this%accum_type
+         call hist_add_error(subname, errmsg, errors=logger)
       end select
 
    end subroutine buff_2d_accum
@@ -897,10 +911,14 @@ contains
       character(len=512)            :: alloc_errmsg
       ! For buffer allocation
       integer                                    :: aerr
-      type(hist_buff_1d_t), pointer :: real_1 => null()
-      type(hist_buff_2d_t), pointer :: real_2 => null()
+      type(hist_buff_1d_t), pointer :: real_1
+      type(hist_buff_2d_t), pointer :: real_2
 
+      ! Clear relevant pointers
       nullify(newbuf)
+      nullify(real_1)
+      nullify(real_2)
+
       ! Create new buffer
       select case (trim(buffer_type))
       case ('real_1')

@@ -55,13 +55,13 @@ contains
       type(hist_log_messages), optional, intent(inout) :: errors
 
       integer                     :: astat
-      character(len=128)          :: errmsg
+      character(len=256)          :: errmsg
       character(len=*), parameter :: subname = 'hist_new_field'
 
       if (.not. hist_have_error(errors=errors)) then
-         allocate(new_field, stat=astat)
+         allocate(new_field, stat=astat, errmsg=errmsg)
          if ((astat /= 0) .and. present(errors)) then
-            call errors%new_error(subname//' Unable to allocate <new_field>')
+            call errors%new_error(subname//' Unable to allocate <new_field>, error: '//errmsg)
          end if
       end if
       if (.not. hist_have_error(errors=errors)) then
