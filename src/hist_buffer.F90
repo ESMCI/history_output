@@ -553,7 +553,7 @@ contains
       type(hist_log_messages), optional, intent(inout) :: logger
       ! Local variables
       integer                     :: aerr
-      character(len=*)            :: errmsg
+      character(len=256)          :: errmsg
       character(len=*), parameter :: subname = 'buff_2d_clear'
 
       if (.not. allocated(this%data)) then
