@@ -63,7 +63,7 @@ contains
 
    pure function hist_have_error(errors) result(has_error)
       ! Return .true. iff <errors> is present and contains error messages
-      type(hist_log_messages), optional, intent(inout) :: errors
+      type(hist_log_messages), optional, intent(in)    :: errors
       logical                                          :: has_error
 
       has_error = present(errors)
