@@ -20,7 +20,7 @@ module hist_api
       module procedure hist_field_norm_value_2d
    end interface hist_field_norm_value
 
-CONTAINS
+contains
 
    !#######################################################################
 
@@ -30,7 +30,7 @@ CONTAINS
         cell_methods, errors) result(new_field)
       use hist_msg_handler, only: hist_have_error, hist_log_messages, ERROR
       use hist_field,       only: hist_field_initialize, hist_field_info_t
-      use ISO_FORTRAN_ENV,  only: REAL64
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
 
       type(hist_field_info_t), pointer                 :: new_field
       character(len=*),                  intent(in)    :: diag_name_in
@@ -55,13 +55,13 @@ CONTAINS
       type(hist_log_messages), optional, intent(inout) :: errors
 
       integer                     :: astat
-      character(len=128)          :: errmsg
+      character(len=256)          :: errmsg
       character(len=*), parameter :: subname = 'hist_new_field'
 
       if (.not. hist_have_error(errors=errors)) then
-         allocate(new_field, stat=astat)
+         allocate(new_field, stat=astat, errmsg=errmsg)
          if ((astat /= 0) .and. present(errors)) then
-            call errors%new_error(subname//' Unable to allocate <new_field>')
+            call errors%new_error(subname//' Unable to allocate <new_field>, error: '//errmsg)
          end if
       end if
       if (.not. hist_have_error(errors=errors)) then
@@ -91,7 +91,7 @@ CONTAINS
       use hist_field,       only: hist_field_info_t
 
       ! Dummy arguments
-      class(hist_field_info_t), pointer                 :: field
+      class(hist_field_info_t), pointer,  intent(inout) :: field
       integer,                            intent(in)    :: buff_shape(:)
       integer,                            intent(in)    :: horiz_axis_ind
       character(len=*),                   intent(in)    :: accum_type
@@ -233,7 +233,7 @@ CONTAINS
       use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use hist_buffer,      only: hist_buff_1d_t, hist_buffer_t
-      use ISO_FORTRAN_ENV,  only: REAL64
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t), pointer,  intent(inout) :: field
@@ -260,13 +260,12 @@ CONTAINS
                      call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
                           subname=subname)
                      exit
-                  else
-                     call hist_add_message(subname, VERBOSE,                     &
-                          "Accumulated data for",                                &
-                          msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-                          msgstr3=trim(buff%buffer_type()),                  &
-                          logger=logger)
                   end if
+                  call hist_add_message(subname, VERBOSE,                        &
+                       'Accumulated data for',                                   &
+                       msgstr2=trim(field%diag_name())//', Buffer type, ',       &
+                       msgstr3=trim(buff%buffer_type()),                         &
+                       logger=logger)
                class default
                   call hist_add_error(subname, 'invalid buffer type', errors=logger)
                end select
@@ -287,7 +286,7 @@ CONTAINS
       use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
       use hist_buffer,      only: hist_buff_2d_t, hist_buffer_t
-      use ISO_FORTRAN_ENV,  only: REAL64
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t), pointer,  intent(inout) :: field
@@ -314,13 +313,12 @@ CONTAINS
                      call  logger%add_stack_frame(ERROR, __FILE__, __LINE__ - 3, &
                           subname=subname)
                      exit
-                  else
-                     call hist_add_message(subname, VERBOSE,                     &
-                          "Accumulated data for",                                &
-                          msgstr2=trim(field%diag_name())//", Buffer type, ",    &
-                          msgstr3=trim(buff%buffer_type()),                  &
-                          logger=logger)
                   end if
+                  call hist_add_message(subname, VERBOSE,                        &
+                       'Accumulated data for',                                   &
+                       msgstr2=trim(field%diag_name())//', Buffer type, ',       &
+                       msgstr3=trim(buff%buffer_type()),                         &
+                       logger=logger)
                class default
                   call hist_add_error(subname, 'invalid buffer type', errors=logger)
                end select
@@ -340,7 +338,7 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
-      use ISO_FORTRAN_ENV,  only: REAL64
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t),          intent(inout) :: field
@@ -364,8 +362,8 @@ CONTAINS
                   subname=subname)
             else
                call hist_add_message(subname, VERBOSE,                   &
-                  "Accumulated data for",                                &
-                  msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                  'Accumulated data for',                                &
+                  msgstr2=trim(field%diag_name())//', Buffer type, ',    &
                   msgstr3=trim(buff%buffer_type()),                  &
                   logger=logger)
             end if
@@ -383,7 +381,7 @@ CONTAINS
       use hist_msg_handler, only: hist_log_messages, hist_have_error, ERROR
       use hist_msg_handler, only: hist_add_message, VERBOSE, hist_add_error
       use hist_field,       only: hist_field_info_t
-      use ISO_FORTRAN_ENV,  only: REAL64
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
 
       ! Dummy arguments
       class(hist_field_info_t),          intent(inout) :: field
@@ -407,8 +405,8 @@ CONTAINS
                  subname=subname)
             else
                call hist_add_message(subname, VERBOSE,                   &
-                  "Accumulated data for",                                &
-                  msgstr2=trim(field%diag_name())//", Buffer type, ",    &
+                  'Accumulated data for',                                &
+                  msgstr2=trim(field%diag_name())//', Buffer type, ',    &
                   msgstr3=trim(buff_ptr%buffer_type()),                  &
                   logger=logger)
             end if

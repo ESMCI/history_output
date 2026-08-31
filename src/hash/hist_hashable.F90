@@ -28,20 +28,21 @@ module hist_hashable
 
    ! Abstract interface for key procedure of hist_hashable_t class
    abstract interface
-      function hist_hashable_get_key(hashable)
+      function hist_hashable_get_key(hashable) result(key)
          import :: hist_hashable_t
+         implicit none
          class(hist_hashable_t), intent(in) :: hashable
-         character(len=:), allocatable      :: hist_hashable_get_key
+         character(len=:), allocatable      :: key
       end function hist_hashable_get_key
    end interface
 
-CONTAINS
+contains
 
    !#######################################################################
 
    subroutine new_hashable_char(name_in, new_obj)
-      character(len=*), intent(in)        :: name_in
-      type(hist_hashable_char_t), pointer :: new_obj
+      character(len=*), intent(in)                       :: name_in
+      type(hist_hashable_char_t), pointer, intent(inout) :: new_obj
 
       if (associated(new_obj)) then
          deallocate(new_obj)
@@ -52,19 +53,19 @@ CONTAINS
 
    !#######################################################################
 
-   function hist_hashable_char_get_key(hashable)
+   function hist_hashable_char_get_key(hashable) result(key)
       ! Return the hashable char class key (name)
       class(hist_hashable_char_t), intent(in) :: hashable
-      character(len=:), allocatable           :: hist_hashable_char_get_key
+      character(len=:), allocatable           :: key
 
-      hist_hashable_char_get_key = hashable%name
+      key = hashable%name
    end function hist_hashable_char_get_key
 
    !#######################################################################
 
    subroutine new_hashable_int(val_in, new_obj)
-      integer, intent(in)                :: val_in
-      type(hist_hashable_int_t), pointer :: new_obj
+      integer,                            intent(in)    :: val_in
+      type(hist_hashable_int_t), pointer, intent(inout) :: new_obj
 
       if (associated(new_obj)) then
          deallocate(new_obj)
@@ -75,24 +76,25 @@ CONTAINS
 
    !#######################################################################
 
-   function hist_hashable_int_get_key(hashable)
+   function hist_hashable_int_get_key(hashable) result(key)
       ! Return the hashable int class key (value ==> string)
       class(hist_hashable_int_t), intent(in) :: hashable
-      character(len=:), allocatable          :: hist_hashable_int_get_key
+      character(len=:), allocatable          :: key
 
       character(len=32) :: key_str
 
       write(key_str, '(i0)') hashable%val()
-      hist_hashable_int_get_key = trim(key_str)
+      key = trim(key_str)
    end function hist_hashable_int_get_key
 
    !#######################################################################
 
-   integer function hist_hashable_int_get_val(hashable)
+   function hist_hashable_int_get_val(hashable) result(val)
       ! Return the hashable int class value
       class(hist_hashable_int_t), intent(in) :: hashable
+      integer                                :: val
 
-      hist_hashable_int_get_val = hashable%value
+      val = hashable%value
    end function hist_hashable_int_get_val
 
 end module hist_hashable
