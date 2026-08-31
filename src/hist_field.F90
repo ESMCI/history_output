@@ -1,5 +1,5 @@
 module hist_field
-   use ISO_FORTRAN_ENV, only: REAL64
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
    ! Module containing DDTs for history fields and associated routines
 
    use hist_hashable, only: hist_hashable_t
@@ -31,11 +31,11 @@ module hist_field
       real(REAL64),                  private :: fillvalue
       integer,          allocatable, private :: field_beg_dims(:)
       integer,          allocatable, private :: field_end_dims(:)
-      
+
 ! type kind rank?
       ! dimensions?
-      type(hist_field_info_t), pointer :: next => NULL()
-      class(hist_buffer_t),    pointer :: buffers => NULL()
+      type(hist_field_info_t), pointer :: next => null()
+      class(hist_buffer_t),    pointer :: buffers => null()
    contains
       procedure :: key             => hist_field_info_get_key
       procedure :: diag_name       => get_diag_name
@@ -61,16 +61,16 @@ module hist_field
       final     :: finalize_field
    end type hist_field_info_t
 
-CONTAINS
+contains
 
    !#######################################################################
 
-   function hist_field_info_get_key(hashable)
+   pure function hist_field_info_get_key(hashable) result(key)
       ! Return the hashable field info class key (diag_file_name)
       class(hist_field_info_t), intent(in) :: hashable
-      character(len=:), allocatable        :: hist_field_info_get_key
+      character(len=:), allocatable        :: key
 
-      hist_field_info_get_key = hashable%diag_file_name
+      key = hashable%diag_file_name
    end function hist_field_info_get_key
 
    !#######################################################################
@@ -80,27 +80,29 @@ CONTAINS
         field_shape, fill_value, sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, &
         mdim_sizes, beg_dims, end_dims, cell_methods, errmsg)
 
-      type(hist_field_info_t), pointer               :: field
-      character(len=*),                  intent(in)  :: diag_name_in
-      character(len=*),                  intent(in)  :: std_name_in
-      character(len=*),                  intent(in)  :: long_name_in
-      character(len=*),                  intent(in)  :: units_in
-      character(len=*),                  intent(in)  :: type_in
-      integer,                           intent(in)  :: decomp_in
-      integer,                           intent(in)  :: mdim_indices(:)
-      character(len=*),                  intent(in)  :: acc_type
-      integer,                           intent(in)  :: num_levels
-      integer,                           intent(in)  :: field_shape(:)
-      real(REAL64),                      intent(in)  :: fill_value
-      character(len=*),        optional, intent(in)  :: sampling_seq
-      logical,                 optional, intent(in)  :: flag_xyfill
-      character(len=*),        optional, intent(in)  :: mixing_ratio
-      integer,                 optional, intent(in)  :: dim_bounds(:,:)
-      integer,                 optional, intent(in)  :: mdim_sizes(:)
-      integer,                 optional, intent(in)  :: beg_dims(:)
-      integer,                 optional, intent(in)  :: end_dims(:)
-      character(len=*),        optional, intent(in)  :: cell_methods
-      character(len=*),        optional, intent(out) :: errmsg
+      type(hist_field_info_t), pointer,  intent(inout) :: field
+      character(len=*),                  intent(in)    :: diag_name_in
+      character(len=*),                  intent(in)    :: std_name_in
+      character(len=*),                  intent(in)    :: long_name_in
+      character(len=*),                  intent(in)    :: units_in
+      character(len=*),                  intent(in)    :: type_in
+      integer,                           intent(in)    :: decomp_in
+      integer,                           intent(in)    :: mdim_indices(:)
+      character(len=*),                  intent(in)    :: acc_type
+      integer,                           intent(in)    :: num_levels
+      integer,                           intent(in)    :: field_shape(:)
+      real(REAL64),                      intent(in)    :: fill_value
+      character(len=*),        optional, intent(in)    :: sampling_seq
+      logical,                 optional, intent(in)    :: flag_xyfill
+      character(len=*),        optional, intent(in)    :: mixing_ratio
+      integer,                 optional, intent(in)    :: dim_bounds(:,:)
+      integer,                 optional, intent(in)    :: mdim_sizes(:)
+      integer,                 optional, intent(in)    :: beg_dims(:)
+      integer,                 optional, intent(in)    :: end_dims(:)
+      character(len=*),        optional, intent(in)    :: cell_methods
+      ! Fortitude:
+      ! allow(assumed-size-character-intent)
+      character(len=*),        optional, intent(out)   :: errmsg
 
       if (present(errmsg)) then
          errmsg = ''
@@ -165,8 +167,8 @@ CONTAINS
 
    subroutine hist_get_field(buffer, field)
       ! Retrieve
-      class(hist_buffer_t), intent(in) :: buffer
-      type(hist_field_info_t), pointer :: field
+      class(hist_buffer_t),             intent(in)    :: buffer
+      type(hist_field_info_t), pointer, intent(inout) :: field
 
       nullify(field)
       select type(finfo => buffer%field_info)
@@ -350,7 +352,7 @@ CONTAINS
       integer, intent(in) :: dimbounds(:,:)
       integer, intent(in) :: mdim_sizes(:)
 
-      integer ::idx
+      integer :: idx
 
       allocate(this%field_beg_dims(3))
       allocate(this%field_end_dims(3))
@@ -382,8 +384,8 @@ CONTAINS
    subroutine clear_buffers(this, logger)
       use hist_msg_handler,    only: hist_log_messages
       ! Dummy Argument
-      class(hist_field_info_t) :: this
-      type(hist_log_messages), optional :: logger
+      class(hist_field_info_t),          intent(inout) :: this
+      type(hist_log_messages), optional, intent(inout) :: logger
       ! Local Variables
       class(hist_buffer_t), pointer :: next_buf
 
@@ -397,13 +399,13 @@ CONTAINS
          end if
       end do
 
-   end subroutine
+   end subroutine clear_buffers
 
    !#######################################################################
 
    subroutine finalize_field(this)
       ! Dummy Argument
-      type(hist_field_info_t) :: this
+      type(hist_field_info_t), intent(inout) :: this
       ! Local Variables
       class(hist_buffer_t), pointer :: next_buf
 

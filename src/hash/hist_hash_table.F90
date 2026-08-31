@@ -1,7 +1,8 @@
 !!XXgoldyXX: To do, statistics output
 module hist_hash_table
 
-   use hist_hashable, only: hist_hashable_t
+   use, intrinsic :: iso_fortran_env, only: output_unit
+   use hist_hashable,                 only: hist_hashable_t
 
    implicit none
    private
@@ -96,16 +97,16 @@ module hist_hash_table
    integer, parameter :: gen_hash_key_offset = 21467 ! z'000053db'
 
    integer, parameter :: tbl_max_idx = 15
-   integer, parameter, dimension(0:tbl_max_idx) :: tbl_gen_hash_key =         &
-        (/ 61, 59, 53, 47, 43, 41, 37, 31, 29, 23, 17, 13, 11, 7, 3, 1 /)
+   integer, parameter :: tbl_gen_hash_key(0:tbl_max_idx) =                    &
+        [61, 59, 53, 47, 43, 41, 37, 31, 29, 23, 17, 13, 11, 7, 3, 1]
 
    integer, parameter :: table_factor_size = 8     ! Table size / # entries
    integer, parameter :: table_overflow_factor = 4 ! # entries / Overflow size
 
    type :: table_entry_t
       ! Any table entry contains a key and a value
-      class(hist_hashable_t), pointer             :: entry_value => NULL()
-      type(table_entry_t),    pointer             :: next => NULL()
+      class(hist_hashable_t), pointer             :: entry_value => null()
+      type(table_entry_t),    pointer             :: next => null()
    contains
       procedure :: finalize_table_entry
    end type table_entry_t
@@ -133,17 +134,18 @@ module hist_hash_table
    private :: have_error      ! Has a called routine detected an error?
    private :: clear_optstring ! Clear a string, if present
 
-CONTAINS
+contains
 
    !#######################################################################
 
-   logical function have_error(errmsg)
+   pure function have_error(errmsg) result(has_error)
       ! Return .true. iff <errmsg> is present and contains text
       character(len=*), optional, intent(in) :: errmsg
+      logical                                :: has_error
 
-      have_error = present(errmsg)
-      if (have_error) then
-         have_error = len_trim(errmsg) > 0
+      has_error = present(errmsg)
+      if (has_error) then
+         has_error = len_trim(errmsg) > 0
       end if
    end function have_error
 
@@ -151,6 +153,9 @@ CONTAINS
 
    subroutine clear_optstring(str)
       ! clear <str> if it is present
+      !
+      ! Fortitude:
+      ! allow(assumed-size-character-intent)
       character(len=*), optional, intent(inout) :: str
 
       if (present(str)) then
@@ -176,9 +181,9 @@ CONTAINS
    subroutine hash_table_initialize_table(this, tbl_size, key_off)
       ! Initialize this table.
       ! Dummy arguments
-      class(hist_hash_table_t)      :: this
-      integer,           intent(in) :: tbl_size   ! new table size
-      integer, optional, intent(in) :: key_off    ! key offset
+      class(hist_hash_table_t), intent(inout) :: this
+      integer,                  intent(in)    :: tbl_size   ! new table size
+      integer, optional,        intent(in)    :: key_off    ! key offset
 
       ! Clear this table so it can be initialized
       if (allocated(this%primary_table)) then
@@ -198,7 +203,7 @@ CONTAINS
    subroutine hash_table_deallocate_table(this)
       ! Deallocate the hash table (if present)
       ! Dummy argument
-      class(hist_hash_table_t)     :: this
+      class(hist_hash_table_t), intent(inout) :: this
 
       ! Local variable
       integer :: entry_index
@@ -228,8 +233,10 @@ CONTAINS
       !
       !  Arguments:
       !
-      class(hist_hash_table_t)                :: this
+      class(hist_hash_table_t),   intent(in)  :: this
       character(len=*),           intent(in)  :: string
+      ! Fortitude:
+      ! allow(assumed-size-character-intent)
       character(len=*), optional, intent(out) :: errmsg
       character(len=*), parameter             :: subname = 'HASH_TABLE_KEY_HASH'
       !
@@ -257,9 +264,14 @@ CONTAINS
             write(errmsg, '(2a,2(i0,a))') subname, ' ERROR: Key Hash, ',      &
                  hash_key, ' out of bounds, [1, ', this%table_size, ']'
          else
-            write(6, '(2a,2(i0,a))') subname, ' ERROR: Key Hash, ',           &
-                 hash_key, ' out of bounds, [1, ', this%table_size, ']'
-            STOP 1
+            ! This else-block is only used for unit testing.  Eventually
+            ! the unit tests should be updated to use 'errmsg', and this
+            ! code block should be removed (along with making 'errmsg'
+            ! required.
+            write(output_unit, '(2a,2(i0,a))') subname,                    &
+                 ' ERROR: Key Hash, ', hash_key, ' out of bounds, [1, ',   &
+                 this%table_size, ']'
+            stop 1
          end if
       end if
 
@@ -279,8 +291,10 @@ CONTAINS
       !
       !  Arguments:
       !
-      class(hist_hash_table_t)                      :: this
+      class(hist_hash_table_t),         intent(in)  :: this
       character(len=*),                 intent(in)  :: key
+      ! Fortitude:
+      ! allow(assumed-size-character-intent)
       character(len=*),       optional, intent(out) :: errmsg
       class(hist_hashable_t), pointer               :: tbl_val
       !
@@ -293,7 +307,7 @@ CONTAINS
       call clear_optstring(errmsg)
       nullify(tbl_val)
       hash_key = this%key_hash(key, errmsg=errmsg)
-      ASSOCIATE(tbl_entry => this%primary_table(hash_key))
+      associate(tbl_entry => this%primary_table(hash_key))
          if (have_error(errmsg)) then
             errmsg = trim(errmsg)//', called from '//subname
          else if (associated(tbl_entry%entry_value)) then
@@ -316,7 +330,7 @@ CONTAINS
                end do
             end if
          end if
-      END ASSOCIATE
+      end associate
 
       if ((.not. associated(tbl_val)) .and. present(errmsg)) then
          if (.not. have_error(errmsg)) then ! Still need to test for empty
@@ -340,9 +354,11 @@ CONTAINS
       !-----------------------------------------------------------------------
 
       !  Dummy arguments:
-      class(hist_hash_table_t)                      :: this
-      class(hist_hashable_t), target                :: newval
-      character(len=*),       optional, intent(out) :: errmsg
+      class(hist_hash_table_t)        , intent(inout) :: this
+      class(hist_hashable_t), target  , intent(in)    :: newval
+      ! Fortitude:
+      ! allow(assumed-size-character-intent)
+      character(len=*),       optional, intent(out)   :: errmsg
       ! Local variables
       integer                          :: hash_ind
       integer                          :: ovflw_len
@@ -363,7 +379,7 @@ CONTAINS
                  "' already in table"
          end if
       else
-         ASSOCIATE(tbl_entry => this%primary_table(hash_ind))
+         associate(tbl_entry => this%primary_table(hash_ind))
             if (associated(tbl_entry%entry_value)) then
                ! We have a collision, make a new entry
                allocate(new_entry)
@@ -391,7 +407,7 @@ CONTAINS
             else
                tbl_entry%entry_value => newval
             end if
-         END ASSOCIATE
+         end associate
       end if
       this%num_keys = this%num_keys + 1
 

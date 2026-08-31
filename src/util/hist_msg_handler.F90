@@ -30,7 +30,7 @@ module hist_msg_handler
    type :: hist_log_entry
       integer                           :: message_level = ERROR
       character(len=:),     allocatable :: log_message
-      type(hist_log_entry), pointer     :: next => NULL()
+      type(hist_log_entry), pointer     :: next => null()
    contains
       final :: finalize_log_entry
    end type hist_log_entry
@@ -41,8 +41,8 @@ module hist_msg_handler
       logical,                private        :: alloc_error = .false.
       integer                                :: message_level = ERROR
       integer,                private        :: max_len = -1 ! no limit
-      type(hist_log_entry), private, pointer :: log_messages => NULL()
-      type(hist_log_entry), private, pointer :: tail => NULL()
+      type(hist_log_entry), private, pointer :: log_messages => null()
+      type(hist_log_entry), private, pointer :: tail => null()
    contains
       procedure :: num_errors      => hist_msgs_num_errors
       procedure :: num_messages    => hist_msgs_num_messages
@@ -54,20 +54,21 @@ module hist_msg_handler
       final     :: finalize_hist_log_messages
    end type hist_log_messages
 
-   character(len=8) :: MSG_HEAD(ERROR:DEBUG_HIST) = (/ 'ERROR   ', 'WARNING ',     &
-        'INFO    ', 'VERBOSE ', 'DEBUG   ' /)
+   character(len=8) :: MSG_HEAD(ERROR:DEBUG_HIST) = ['ERROR   ', 'WARNING ',  &
+        'INFO    ', 'VERBOSE ', 'DEBUG   ']
 
-CONTAINS
+contains
 
    !#######################################################################
 
-   logical function hist_have_error(errors)
+   pure function hist_have_error(errors) result(has_error)
       ! Return .true. iff <errors> is present and contains error messages
-      type(hist_log_messages), optional, intent(inout) :: errors
+      type(hist_log_messages), optional, intent(in)    :: errors
+      logical                                          :: has_error
 
-      hist_have_error = present(errors)
-      if (hist_have_error) then
-         hist_have_error = errors%num_errors() > 0
+      has_error = present(errors)
+      if (has_error) then
+         has_error = errors%num_errors() > 0
       end if
    end function hist_have_error
 
@@ -130,7 +131,7 @@ CONTAINS
 
    subroutine finalize_log_entry(this)
       ! Dummy Argument
-      type(hist_log_entry) :: this
+      type(hist_log_entry), intent(inout) :: this
       ! Local argument
       type(hist_log_entry), pointer :: next
 
@@ -147,20 +148,22 @@ CONTAINS
 
    !#######################################################################
 
-   integer function hist_msgs_num_messages(this)
+   pure function hist_msgs_num_messages(this) result(num_messages)
       ! Dummy Argument
-      class(hist_log_messages) :: this
+      class(hist_log_messages), intent(in) :: this
+      integer                              :: num_messages
 
-      hist_msgs_num_messages = this%length
+      num_messages = this%length
    end function hist_msgs_num_messages
 
    !#######################################################################
 
-   integer function hist_msgs_num_errors(this)
+   pure function hist_msgs_num_errors(this) result(num_errors)
       ! Dummy Argument
-      class(hist_log_messages) :: this
+      class(hist_log_messages), intent(in) :: this
+      integer                              :: num_errors
 
-      hist_msgs_num_errors = this%error_count
+      num_errors = this%error_count
    end function hist_msgs_num_errors
 
    !#######################################################################
@@ -168,13 +171,13 @@ CONTAINS
    subroutine hist_msgs_new_error(this, errstr1,                              &
         errint1, errstr2, errint2, errstr3, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      character(len=*),           intent(in) :: errstr1
-      integer,          optional, intent(in) :: errint1
-      character(len=*), optional, intent(in) :: errstr2
-      integer,          optional, intent(in) :: errint2
-      character(len=*), optional, intent(in) :: errstr3
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      character(len=*),           intent(in)    :: errstr1
+      integer,          optional, intent(in)    :: errint1
+      character(len=*), optional, intent(in)    :: errstr2
+      integer,          optional, intent(in)    :: errint2
+      character(len=*), optional, intent(in)    :: errstr3
+      character(len=*), optional, intent(in)    :: subname
 
       call this%new_message(ERROR, errstr1, msgint1=errint1, msgstr2=errstr2, &
            msgint2=errint2, msgstr3=errstr3, subname=subname)
@@ -187,14 +190,14 @@ CONTAINS
    subroutine hist_msgs_new_message(this, msg_level, msgstr1,                 &
         msgint1, msgstr2, msgint2, msgstr3, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      integer,                    intent(in) :: msg_level
-      character(len=*),           intent(in) :: msgstr1
-      integer,          optional, intent(in) :: msgint1
-      character(len=*), optional, intent(in) :: msgstr2
-      integer,          optional, intent(in) :: msgint2
-      character(len=*), optional, intent(in) :: msgstr3
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      integer,                    intent(in)    :: msg_level
+      character(len=*),           intent(in)    :: msgstr1
+      integer,          optional, intent(in)    :: msgint1
+      character(len=*), optional, intent(in)    :: msgstr2
+      integer,          optional, intent(in)    :: msgint2
+      character(len=*), optional, intent(in)    :: msgstr3
+      character(len=*), optional, intent(in)    :: subname
 
       ! Local variables
       integer,              parameter   :: num_strs = 3
@@ -234,12 +237,12 @@ CONTAINS
          end if
          if (present(subname)) then
             if (msg_lvl == ERROR) then
-               write(msg_strs(1), '(3a)') " in ", trim(subname), ": "
+               write(msg_strs(1), '(3a)') ' in ', trim(subname), ': '
             else
-               write(msg_strs(1), '(3a)') "In ", trim(subname), ": "
+               write(msg_strs(1), '(3a)') 'In ', trim(subname), ': '
             end if
          else
-            write(msg_strs(1), '(3a)') ": "
+            write(msg_strs(1), '(3a)') ': '
          end if
          msg_len = msg_len + len_trim(msg_strs(1)) + 1 ! Keep space at end
          if (present(msgint1)) then
@@ -297,11 +300,11 @@ CONTAINS
 
    subroutine hist_add_stack_frame(this, msg_level, filename, line, subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      integer,                    intent(in) :: msg_level
-      character(len=*),           intent(in) :: filename
-      integer,                    intent(in) :: line
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      integer,                    intent(in)    :: msg_level
+      character(len=*),           intent(in)    :: filename
+      integer,                    intent(in)    :: line
+      character(len=*), optional, intent(in)    :: subname
 
       if (present(subname)) then
          call this%new_message(msg_level,                                     &
@@ -319,11 +322,11 @@ CONTAINS
    subroutine hist_msgs_new_alloc_error(this, fieldname, filename, line,      &
         subname)
       ! Dummy Arguments
-      class(hist_log_messages)               :: this
-      character(len=*),           intent(in) :: fieldname
-      character(len=*),           intent(in) :: filename
-      integer,                    intent(in) :: line
-      character(len=*), optional, intent(in) :: subname
+      class(hist_log_messages),   intent(inout) :: this
+      character(len=*),           intent(in)    :: fieldname
+      character(len=*),           intent(in)    :: filename
+      integer,                    intent(in)    :: line
+      character(len=*), optional, intent(in)    :: subname
 
       if (present(subname)) then
          call this%new_message(ERROR,                                         &
@@ -341,7 +344,7 @@ CONTAINS
 
    subroutine hist_msgs_print_log(this, unit, header)
       ! Dummy Arguments
-      class(hist_log_messages)                   :: this
+      class(hist_log_messages),       intent(in) :: this
       integer,                        intent(in) :: unit
       character(len=*),     optional, intent(in) :: header
 
@@ -368,7 +371,7 @@ CONTAINS
 
    subroutine finalize_hist_log_messages(this)
       ! Dummy Argument
-      type(hist_log_messages) :: this
+      type(hist_log_messages), intent(inout) :: this
 
       if (associated(this%log_messages)) then
          deallocate(this%log_messages)
