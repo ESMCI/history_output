@@ -11,6 +11,9 @@ module hist_api
    public :: hist_field_value       ! Grab the current values of the field buffer
    public :: hist_field_samples     ! Grab the number of samples for accumulated fields
    public :: hist_field_var_buffer  ! Grab the variance (standard dev.) buffer
+   public :: hist_field_set_buffer  ! Override the field buffer with the provided values
+   public :: hist_field_set_samples ! Override the samples with the provided values
+   public :: hist_field_set_var_buffer ! Override the variance buffer with the provided values
 
    ! Interfaces for public interfaces
    interface hist_field_accumulate
@@ -32,6 +35,16 @@ module hist_api
       module procedure hist_field_var_buffer_1d
       module procedure hist_field_var_buffer_2d
    end interface hist_field_var_buffer
+
+   interface hist_field_set_buffer
+      module procedure hist_field_set_buffer_1d
+      module procedure hist_field_set_buffer_2d
+   end interface hist_field_set_buffer
+
+   interface hist_field_set_var_buffer
+      module procedure hist_field_set_var_buffer_1d
+      module procedure hist_field_set_var_buffer_2d
+   end interface hist_field_set_var_buffer
 
 contains
 
@@ -578,5 +591,154 @@ contains
       end if
 
    end subroutine hist_field_samples
+
+   !#######################################################################
+
+   subroutine hist_field_set_buffer_1d(field, field_buffer, logger)
+      use hist_buffer, only: hist_buffer_t, hist_buff_1d_t
+      use hist_field,  only: hist_field_info_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(in)    :: field_buffer(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_1d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_set_buffer_1d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_1d_t)
+            buff => buff_ptr
+            call buff%set_field_buffer(field_buffer)
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_set_buffer_1d
+
+   !#######################################################################
+
+   subroutine hist_field_set_buffer_2d(field, field_buffer, logger)
+      use hist_field,       only: hist_field_info_t
+      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(in)    :: field_buffer(:,:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_2d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_set_buffer_2d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_2d_t)
+            buff => buff_ptr
+            call buff%set_field_buffer(field_buffer)
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_set_buffer_2d
+
+   !#######################################################################
+
+   subroutine hist_field_set_samples(field, samples)
+      use hist_field,  only: hist_field_info_t
+      use hist_buffer, only: hist_buffer_t
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      integer,                     intent(in) :: samples(:)
+      ! Local variables
+      class(hist_buffer_t), pointer  :: buff_ptr
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr)) then
+         call buff_ptr%set_num_samples(samples)
+      end if
+
+   end subroutine hist_field_set_samples
+
+   !#######################################################################
+
+   subroutine hist_field_set_var_buffer_1d(field, var_buffer, logger)
+      use hist_buffer, only: hist_buffer_t, hist_buff_1d_t
+      use hist_field,  only: hist_field_info_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(in)    :: var_buffer(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_1d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_set_var_buffer_1d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_1d_t)
+            buff => buff_ptr
+            call buff%set_var_buffer(var_buffer)
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_set_var_buffer_1d
+
+   !#######################################################################
+
+   subroutine hist_field_set_var_buffer_2d(field, var_buffer, logger)
+      use hist_field,       only: hist_field_info_t
+      use hist_buffer,      only: hist_buffer_t, hist_buff_2d_t
+      use hist_msg_handler, only: hist_log_messages, hist_have_error
+      use hist_msg_handler, only: hist_add_error
+      use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+
+      ! Dummy arguments
+      class(hist_field_info_t), intent(inout) :: field
+      real(REAL64),             intent(in)    :: var_buffer(:,:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+      ! Local variables
+      class(hist_buffer_t),  pointer :: buff_ptr
+      class(hist_buff_2d_t), pointer :: buff
+      character(len=*), parameter    :: subname = 'hist_field_set_var_buffer_2d'
+
+      buff_ptr => field%buffers
+      if (associated(buff_ptr) .and. &
+              (.not. hist_have_error(errors=logger))) then
+         select type(buff_ptr)
+         class is (hist_buff_2d_t)
+            buff => buff_ptr
+            call buff%set_var_buffer(var_buffer)
+         class default
+            call hist_add_error(subname, 'invalid buffer type', errors=logger)
+         end select
+      end if
+
+   end subroutine hist_field_set_var_buffer_2d
+
+   !#######################################################################
 
 end module hist_api
