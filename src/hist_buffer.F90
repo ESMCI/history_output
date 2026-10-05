@@ -55,6 +55,7 @@ module hist_buffer
       procedure                              :: check_status
       procedure                              :: has_blocks
       procedure                              :: get_num_samples
+      procedure                              :: set_num_samples
       procedure(hist_buff_clear),   deferred :: clear
       procedure(hist_buff_init),    deferred :: initialize
    end type hist_buffer_t
@@ -68,6 +69,8 @@ module hist_buffer
       procedure :: norm_value => buff_1d_value
       procedure :: initialize => init_buff_1d
       procedure :: get_var_buffer => get_var_buffer_1d
+      procedure :: set_field_buffer => set_field_buffer_1d
+      procedure :: set_var_buffer => set_var_buffer_1d
    end type hist_buff_1d_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_2d_t
@@ -80,6 +83,8 @@ module hist_buffer
       procedure :: initialize => init_buff_2d
       procedure :: check_fill_value => buff_2d_check_fill
       procedure :: get_var_buffer => get_var_buffer_2d
+      procedure :: set_field_buffer => set_field_buffer_2d
+      procedure :: set_var_buffer => set_var_buffer_2d
    end type hist_buff_2d_t
 
    ! Abstract interfaces for hist_buffer_t class
@@ -224,6 +229,17 @@ contains
       samples = this%num_samples
 
    end function get_num_samples
+
+   !#######################################################################
+
+   subroutine set_num_samples(this, samples)
+      ! Dummy arguments
+      class(hist_buffer_t), intent(inout) :: this
+      integer,                 intent(in) :: samples(:)
+
+      this%num_samples = samples
+
+   end subroutine set_num_samples
 
    !#######################################################################
 
@@ -925,6 +941,42 @@ contains
 
       var_buff = this%var_buffer
    end subroutine get_var_buffer_2d
+
+   !#######################################################################
+
+   subroutine set_field_buffer_1d(this, field_buff)
+      class(hist_buff_1d_t), intent(inout) :: this
+      real(REAL64),             intent(in) :: field_buff(:)
+
+      this%data = field_buff
+   end subroutine set_field_buffer_1d
+
+   !#######################################################################
+
+   subroutine set_field_buffer_2d(this, field_buff)
+      class(hist_buff_2d_t), intent(inout) :: this
+      real(REAL64),             intent(in) :: field_buff(:,:)
+
+      this%data = field_buff
+   end subroutine set_field_buffer_2d
+
+   !#######################################################################
+
+   subroutine set_var_buffer_1d(this, var_buff)
+      class(hist_buff_1d_t), intent(inout) :: this
+      real(REAL64),             intent(in) :: var_buff(:)
+
+      this%var_buffer = var_buff
+   end subroutine set_var_buffer_1d
+
+   !#######################################################################
+
+   subroutine set_var_buffer_2d(this, var_buff)
+      class(hist_buff_2d_t), intent(inout) :: this
+      real(REAL64),             intent(in) :: var_buff(:,:)
+
+      this%var_buffer = var_buff
+   end subroutine set_var_buffer_2d
 
    !#######################################################################
 
