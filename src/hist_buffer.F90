@@ -41,6 +41,7 @@ module hist_buffer
       integer,                allocatable, private :: field_shape(:)
       integer,                allocatable, private :: block_begs(:)
       integer,                allocatable, private :: block_ends(:)
+      integer,                allocatable, private :: num_samples(:)
       character(len=:),       allocatable, private :: buff_type
       class(hist_buffer_t),   pointer              :: next => null()
    contains
@@ -53,6 +54,7 @@ module hist_buffer
       procedure                              :: buffer_type
       procedure                              :: check_status
       procedure                              :: has_blocks
+      procedure                              :: get_num_samples
       procedure(hist_buff_clear),   deferred :: clear
       procedure(hist_buff_init),    deferred :: initialize
    end type hist_buffer_t
@@ -60,24 +62,24 @@ module hist_buffer
    type, public, extends(hist_buffer_t) :: hist_buff_1d_t
       real(REAL64), allocatable :: data(:)
       real(REAL64), allocatable :: var_buffer(:)
-      integer,  allocatable,   private :: num_samples(:)
    contains
       procedure :: clear => buff_1d_clear
       procedure :: accumulate => buff_1d_accum
       procedure :: norm_value => buff_1d_value
       procedure :: initialize => init_buff_1d
+      procedure :: get_var_buffer => get_var_buffer_1d
    end type hist_buff_1d_t
 
    type, public, extends(hist_buffer_t) :: hist_buff_2d_t
       real(REAL64), allocatable :: data(:,:)
       real(REAL64), allocatable :: var_buffer(:,:)
-      integer, allocatable,    private :: num_samples(:)
    contains
       procedure :: clear => buff_2d_clear
       procedure :: accumulate => buff_2d_accum
       procedure :: norm_value => buff_2d_value
       procedure :: initialize => init_buff_2d
       procedure :: check_fill_value => buff_2d_check_fill
+      procedure :: get_var_buffer => get_var_buffer_2d
    end type hist_buff_2d_t
 
    ! Abstract interfaces for hist_buffer_t class
@@ -198,6 +200,30 @@ contains
       blocked = allocated(this%block_begs) .and. allocated(this%block_ends)
 
    end function has_blocks
+
+   !#######################################################################
+
+   function get_num_samples(this, logger) result(samples)
+      use hist_msg_handler, only: hist_log_messages, hist_add_error
+      ! Dummy arguments
+      class(hist_buffer_t),                 intent(in) :: this
+      integer, allocatable                             :: samples(:)
+      type(hist_log_messages), optional, intent(inout) :: logger
+
+      ! Local variables
+      integer :: ierr
+      character(len=512) :: errmsg
+      character(len=*), parameter :: subname = 'get_num_samples'
+
+      allocate(samples(size(this%num_samples)), stat=ierr, errmsg=errmsg)
+      if (ierr /= 0) then
+         call hist_add_error(subname, 'failed to allocate num_samples; errmsg='//trim(errmsg), &
+                 errors=logger)
+      end if
+
+      samples = this%num_samples
+
+   end function get_num_samples
 
    !#######################################################################
 
@@ -881,6 +907,24 @@ contains
       end if
 
    end subroutine buff_2d_value
+
+   !#######################################################################
+
+   subroutine get_var_buffer_1d(this, var_buff)
+      class(hist_buff_1d_t), intent(in) :: this
+      real(REAL64), intent(out) :: var_buff(:)
+
+      var_buff = this%var_buffer
+   end subroutine get_var_buffer_1d
+
+   !#######################################################################
+
+   subroutine get_var_buffer_2d(this, var_buff)
+      class(hist_buff_2d_t), intent(in) :: this
+      real(REAL64), intent(out) :: var_buff(:,:)
+
+      var_buff = this%var_buffer
+   end subroutine get_var_buffer_2d
 
    !#######################################################################
 
