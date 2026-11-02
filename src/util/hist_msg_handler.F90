@@ -26,6 +26,7 @@ module hist_msg_handler
    integer, public, parameter :: VERBOSE = 3
    integer, public, parameter :: DEBUG_HIST   = 4
    integer, public, parameter :: MAX_LEVEL = DEBUG_HIST
+   integer, public, parameter :: error_length = 256
 
    type :: hist_log_entry
       integer                           :: message_level = ERROR

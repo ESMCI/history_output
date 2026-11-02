@@ -28,6 +28,7 @@ module hist_field
       integer,                       private :: field_num_levels
       integer,          allocatable, private :: field_dimensions(:)
       logical,                       private :: field_flag_xyfill
+      logical,                       private :: field_sampled_on_subcycle
       real(REAL64),                  private :: fillvalue
       integer,          allocatable, private :: field_beg_dims(:)
       integer,          allocatable, private :: field_end_dims(:)
@@ -56,6 +57,7 @@ module hist_field
       procedure :: fill_value        => get_fill_value
       procedure :: mixing_ratio      => get_mixing_ratio
       procedure :: cell_methods      => get_cell_methods
+      procedure :: sampled_on_subcycle => get_sampled_on_subcycle
       procedure :: set_dimension_bounds
       procedure :: clear_buffers
       final     :: finalize_field
@@ -78,7 +80,7 @@ contains
    subroutine hist_field_initialize(field, diag_name_in, std_name_in,         &
         long_name_in, units_in, type_in, decomp_in, mdim_indices, acc_type, num_levels,  &
         field_shape, fill_value, sampling_seq, flag_xyfill, mixing_ratio, dim_bounds, &
-        mdim_sizes, beg_dims, end_dims, cell_methods, errmsg)
+        mdim_sizes, beg_dims, end_dims, cell_methods, sampled_on_subcycle, errmsg)
 
       type(hist_field_info_t), pointer,  intent(inout) :: field
       character(len=*),                  intent(in)    :: diag_name_in
@@ -100,6 +102,7 @@ contains
       integer,                 optional, intent(in)    :: beg_dims(:)
       integer,                 optional, intent(in)    :: end_dims(:)
       character(len=*),        optional, intent(in)    :: cell_methods
+      logical,                 optional, intent(in)    :: sampled_on_subcycle
       ! Fortitude:
       ! allow(assumed-size-character-intent)
       character(len=*),        optional, intent(out)   :: errmsg
@@ -139,6 +142,11 @@ contains
          field%field_cell_methods = cell_methods
       else
          field%field_cell_methods = ''
+      end if
+      if (present(sampled_on_subcycle)) then
+         field%field_sampled_on_subcycle = sampled_on_subcycle
+      else
+         field%field_sampled_on_subcycle = .false.
       end if
       if (present(dim_bounds)) then
          if (.not. present(mdim_sizes)) then
@@ -344,6 +352,15 @@ contains
 
       info = this%field_cell_methods
    end function get_cell_methods
+
+   !#######################################################################
+
+   pure function get_sampled_on_subcycle(this) result(info)
+      class(hist_field_info_t), intent(in) :: this
+      logical                              :: info
+
+      info = this%field_sampled_on_subcycle
+   end function get_sampled_on_subcycle
 
    !#######################################################################
 
