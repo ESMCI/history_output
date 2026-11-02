@@ -561,7 +561,7 @@ contains
 
    !#######################################################################
 
-   subroutine buff_1d_value(this, norm_val, flag_xyfill, fill_value)
+   pure subroutine buff_1d_value(this, norm_val, flag_xyfill, fill_value)
       ! Dummy arguments
       class(hist_buff_1d_t),             intent(in)    :: this
       real(REAL64),                      intent(inout) :: norm_val(:)
@@ -888,7 +888,7 @@ contains
 
    !#######################################################################
 
-   subroutine buff_2d_value(this, norm_val, flag_xyfill, fill_value)
+   pure subroutine buff_2d_value(this, norm_val, flag_xyfill, fill_value)
       ! Dummy arguments
       class(hist_buff_2d_t),             intent(in)    :: this
       real(REAL64),                      intent(inout) :: norm_val(:,:)
@@ -1233,7 +1233,7 @@ contains
 
    !#######################################################################
 
-   subroutine buff_3d_value(this, norm_val, flag_xyfill, fill_value)
+   pure subroutine buff_3d_value(this, norm_val, flag_xyfill, fill_value)
       ! Dummy arguments
       class(hist_buff_3d_t),             intent(in)    :: this
       real(REAL64),                      intent(inout) :: norm_val(:,:,:)
