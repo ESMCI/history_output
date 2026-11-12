@@ -1,6 +1,6 @@
 program test_hist_buffer
    use ISO_FORTRAN_ENV,  only: REAL64, REAL32, INT32, INT64
-   use hist_msg_handler, only: hist_log_messages, hist_add_error
+   use hist_msg_handler, only: hist_log_messages, hist_add_error, error_length
    use hist_msg_handler, only: ERROR, VERBOSE
    use hist_buffer,      only: hist_buffer_t
    use hist_field,       only: hist_field_info_t, hist_get_field
@@ -11,7 +11,7 @@ program test_hist_buffer
 
    integer                           :: index
    integer, parameter                :: num_cols = 5
-   character(len=256)                :: errmsg
+   character(len=error_length)       :: errmsg
    class(hist_field_info_t), pointer :: my_fields => NULL()
    class(hist_field_info_t), pointer :: fld_ptr => NULL()
    class(hist_buffer_t),     pointer :: buffer => NULL()
