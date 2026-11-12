@@ -1246,6 +1246,8 @@ contains
       integer :: nacc
       real(REAL64) :: tmpfill, variance
 
+      ! Initialize values that are not fill values:
+      tmpfill = merge(fill_value, 0.0_REAL64, flag_xyfill)
       if (this%accum_type /= hist_accum_var) then
          do ind1 = 1, this%field_shape(1)
             do ind2 = 1, this%field_shape(2)
@@ -1253,8 +1255,8 @@ contains
                   nacc = this%num_samples(ind1)
                   if (nacc > 0) then
                      norm_val(ind1, ind2, ind3) = this%data(ind1, ind2, ind3) / nacc
-                  else if (flag_xyfill) then
-                     norm_val(ind1, ind2, ind3) = fill_value
+                  else
+                     norm_val(ind1, ind2, ind3) = tmpfill
                   end if
                end do
             end do
@@ -1262,7 +1264,6 @@ contains
       else
          ! Standard deviation using Welford's algorithm
          ! DOI: 10.1080/00401706.1962.10490022
-         tmpfill = merge(fill_value, 0.0_REAL64, flag_xyfill)
          do ind1 = 1, this%field_shape(1)
             do ind2 = 1, this%field_shape(2)
                do ind3 = 1, this%field_shape(3)
