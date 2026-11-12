@@ -9,3 +9,8 @@ add_pfunit_ctest(hash_table_test
   TEST_SOURCES test_hash_table.pf
   LINK_LIBRARIES history
 )
+
+add_pfunit_ctest(hist_buffer_test
+  TEST_SOURCES test_hist_buffer.pf
+  LINK_LIBRARIES history
+)

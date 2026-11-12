@@ -1,0 +1,218 @@
+! Tests for hist_buffer accumulation and normalization
+
+@test
+subroutine test_hist_buff_1d_avg_and_empty_window()
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use funit
+   use hist_msg_handler, only: hist_log_messages
+   use hist_field,       only: hist_field_info_t
+   use hist_api,         only: hist_new_field, hist_new_buffer
+   use hist_api,         only: hist_field_accumulate, hist_field_norm_value
+
+   integer,      parameter :: num_cols = 5
+   real(REAL64), parameter :: fillval = 1.0e36_REAL64
+
+   class(hist_field_info_t), pointer :: field => NULL()
+   type(hist_log_messages)          :: errors
+   real(REAL64)                     :: data(num_cols)
+   real(REAL64)                     :: vals(num_cols)
+   integer                          :: ind
+
+   field => hist_new_field('FSNT', 'net_sw_flux', 'Net solar flux', 'W m-2', &
+        'real', 1, (/ 1 /), 'avg', 1, (/ num_cols /), fillval,               &
+        beg_dims=(/ 1 /), end_dims=(/ num_cols /), errors=errors)
+   call hist_new_buffer(field, (/ num_cols /), 1, 'avg', 1, errors=errors)
+   @assertEqual(0, errors%num_errors())
+
+   ! A window with samples normalizes to the accumulated average.
+   do ind = 1, num_cols
+      data(ind) = real(ind, REAL64)
+   end do
+   call hist_field_accumulate(field, data, 1, logger=errors)
+   call hist_field_accumulate(field, data * 3.0_REAL64, 1, logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(data * 2.0_REAL64, vals)
+
+   ! An empty window (cleared buffer, no samples) must return zeros,
+   ! not leave the sentinel in the output array.
+   call field%clear_buffers(logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(0.0_REAL64, vals)
+
+end subroutine test_hist_buff_1d_avg_and_empty_window
+
+@test
+subroutine test_hist_buff_1d_lst_empty_window()
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use funit
+   use hist_msg_handler, only: hist_log_messages
+   use hist_field,       only: hist_field_info_t
+   use hist_api,         only: hist_new_field, hist_new_buffer
+   use hist_api,         only: hist_field_accumulate, hist_field_norm_value
+
+   integer,      parameter :: num_cols = 5
+   real(REAL64), parameter :: fillval = 1.0e36_REAL64
+
+   class(hist_field_info_t), pointer :: field => NULL()
+   type(hist_log_messages)          :: errors
+   real(REAL64)                     :: data(num_cols)
+   real(REAL64)                     :: vals(num_cols)
+   integer                          :: ind
+
+   field => hist_new_field('SOLIN', 'solar_insolation', 'Solar insolation',  &
+        'W m-2', 'real', 1, (/ 1 /), 'lst', 1, (/ num_cols /), fillval,      &
+        beg_dims=(/ 1 /), end_dims=(/ num_cols /), errors=errors)
+   call hist_new_buffer(field, (/ num_cols /), 1, 'lst', 1, errors=errors)
+   @assertEqual(0, errors%num_errors())
+
+   do ind = 1, num_cols
+      data(ind) = real(2 * ind, REAL64)
+   end do
+   call hist_field_accumulate(field, data, 1, logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(data, vals)
+
+   ! An instantaneous field sampled in no window (e.g. a diagnostic only
+   ! written on radiation timesteps, output every timestep) must read
+   ! back as zeros after the post-write clear.
+   call field%clear_buffers(logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(0.0_REAL64, vals)
+
+end subroutine test_hist_buff_1d_lst_empty_window
+
+@test
+subroutine test_hist_buff_1d_empty_window_xyfill()
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use funit
+   use hist_msg_handler, only: hist_log_messages
+   use hist_field,       only: hist_field_info_t
+   use hist_api,         only: hist_new_field, hist_new_buffer
+   use hist_api,         only: hist_field_norm_value
+
+   integer,      parameter :: num_cols = 5
+   real(REAL64), parameter :: fillval = 1.0e36_REAL64
+
+   class(hist_field_info_t), pointer :: field => NULL()
+   type(hist_log_messages)          :: errors
+   real(REAL64)                     :: vals(num_cols)
+
+   field => hist_new_field('TS', 'surface_temperature', 'Surface temp', 'K', &
+        'real', 1, (/ 1 /), 'lst', 1, (/ num_cols /), fillval,               &
+        beg_dims=(/ 1 /), end_dims=(/ num_cols /), flag_xyfill=.true.,       &
+        errors=errors)
+   call hist_new_buffer(field, (/ num_cols /), 1, 'lst', 1, errors=errors)
+   @assertEqual(0, errors%num_errors())
+
+   ! An empty window for an xyfill field reads back as fill_value.
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(fillval, vals)
+
+end subroutine test_hist_buff_1d_empty_window_xyfill
+
+@test
+subroutine test_hist_buff_2d_avg_and_empty_window()
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use funit
+   use hist_msg_handler, only: hist_log_messages
+   use hist_field,       only: hist_field_info_t
+   use hist_api,         only: hist_new_field, hist_new_buffer
+   use hist_api,         only: hist_field_accumulate, hist_field_norm_value
+
+   integer,      parameter :: num_cols = 4
+   integer,      parameter :: num_levs = 3
+   real(REAL64), parameter :: fillval = 1.0e36_REAL64
+
+   class(hist_field_info_t), pointer :: field => NULL()
+   type(hist_log_messages)          :: errors
+   real(REAL64)                     :: data(num_cols, num_levs)
+   real(REAL64)                     :: vals(num_cols, num_levs)
+   integer                          :: ind, lev
+
+   field => hist_new_field('QRL', 'lw_heating_rate', 'LW heating rate',      &
+        'K s-1', 'real', 1, (/ 1 /), 'avg', num_levs,                        &
+        (/ num_cols, num_levs /), fillval, beg_dims=(/ 1, 1 /),              &
+        end_dims=(/ num_cols, num_levs /), errors=errors)
+   call hist_new_buffer(field, (/ num_cols, num_levs /), 1, 'avg', 1,        &
+        errors=errors)
+   @assertEqual(0, errors%num_errors())
+
+   do lev = 1, num_levs
+      do ind = 1, num_cols
+         data(ind, lev) = real(ind * lev, REAL64)
+      end do
+   end do
+   call hist_field_accumulate(field, data, 1, logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(data, vals)
+
+   ! An empty window must return zeros for every column and level.
+   call field%clear_buffers(logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(0.0_REAL64, vals)
+
+end subroutine test_hist_buff_2d_avg_and_empty_window
+
+@test
+subroutine test_hist_buff_3d_avg_and_empty_window()
+   use, intrinsic :: ISO_FORTRAN_ENV, only: REAL64
+   use funit
+   use hist_msg_handler, only: hist_log_messages
+   use hist_field,       only: hist_field_info_t
+   use hist_api,         only: hist_new_field, hist_new_buffer
+   use hist_api,         only: hist_field_accumulate, hist_field_norm_value
+
+   integer,      parameter :: num_cols = 4
+   integer,      parameter :: num_levs = 3
+   integer,      parameter :: num_bins = 2
+   real(REAL64), parameter :: fillval = 1.0e36_REAL64
+
+   class(hist_field_info_t), pointer :: field => NULL()
+   type(hist_log_messages)          :: errors
+   real(REAL64)                     :: data(num_cols, num_levs, num_bins)
+   real(REAL64)                     :: vals(num_cols, num_levs, num_bins)
+   integer                          :: ind, lev, bin
+
+   field => hist_new_field('BINQ', 'binned_mixing_ratio', 'Binned mixing ratio', &
+        'kg kg-1', 'real', 1, (/ 1 /), 'avg', num_levs,                        &
+        (/ num_cols, num_levs, num_bins /), fillval, beg_dims=(/ 1, 1, 1 /),   &
+        end_dims=(/ num_cols, num_levs, num_bins /), errors=errors)
+   call hist_new_buffer(field, (/ num_cols, num_levs, num_bins /), 1, 'avg', 1, &
+        errors=errors)
+   @assertEqual(0, errors%num_errors())
+
+   do bin = 1, num_bins
+      do lev = 1, num_levs
+         do ind = 1, num_cols
+            data(ind, lev, bin) = real(ind * lev + 10 * bin, REAL64)
+         end do
+      end do
+   end do
+   call hist_field_accumulate(field, data, 1, logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(data, vals)
+
+   ! An empty window must return zeros for every column, level, and bin.
+   call field%clear_buffers(logger=errors)
+   vals = -9999.0_REAL64
+   call hist_field_norm_value(field, vals, logger=errors)
+   @assertEqual(0, errors%num_errors())
+   @assertEqual(0.0_REAL64, vals)
+
+end subroutine test_hist_buff_3d_avg_and_empty_window
